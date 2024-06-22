@@ -7,6 +7,7 @@
 #include "cg/cg_offsets.hpp"
 #include "mr_record.hpp"
 #include <cg/cg_client.hpp>
+#include <com/com_channel.hpp>
 
 CPlayback::CPlayback(std::vector<playback_cmd>&& _data, int g_speed, bool jump_slowdownEnable)
 	: cmds(std::forward<std::vector<playback_cmd>&&>(_data)) {
@@ -25,8 +26,8 @@ CPlayback::CPlayback(const std::vector<playback_cmd>& _data, int g_speed, bool j
 CPlayback::~CPlayback() = default;
 void CPlayback::TryFixingTime(usercmd_s* cmd, usercmd_s* oldcmd)
 {
-	int realDelta = cmd->serverTime - oldcmd->serverTime;
-	int targetDelta = cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime;
+	const int realDelta = cmd->serverTime - oldcmd->serverTime;
+	const int targetDelta = cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime;
 
 	if (realDelta == targetDelta)
 		return;
@@ -42,10 +43,12 @@ void CPlayback::DoPlayback(usercmd_s* cmd, usercmd_s* oldcmd)
 	auto icmd = &cmds[m_iCmd];
 
 	int FPS = 500;
-	int Delta = icmd->serverTime - icmd->oldTime;
+	const int Delta = icmd->serverTime - icmd->oldTime;
 
-	if (Delta)
+	if (Delta) {
 		FPS = 1000 / Delta;
+	}else
+		Com_Printf("^2bad delta\n");
 
 	for (int i = 0; i < 3; i++) {
 		cmd->angles[i] = ANGLE2SHORT(AngleDelta(icmd->deltas[i], cgs->predictedPlayerState.delta_angles[i]));
@@ -86,7 +89,8 @@ void CPlayback::StopPlayback()
 	m_iCmd = cmds.size();
 }
 bool CPlayback::IsCompatibleWithState(const playerState_s* ps) const noexcept {
-	return CG_GetSpeed(ps) == m_iSpeed && Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled == m_jumpSlowdownEnable;
+	return CG_GetSpeed(ps) == m_iSpeed && 
+		(m_jumpSlowdownEnable == both || Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled == m_jumpSlowdownEnable);
 }
 fvec3 CPlayback::GetOrigin() const noexcept { return cmds.front().origin; }
 fvec3 CPlayback::GetAngles() const noexcept { return cmds.front().viewangles; }

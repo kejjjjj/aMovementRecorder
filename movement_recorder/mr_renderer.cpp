@@ -34,10 +34,10 @@ void CRMovementRecorder::CG_RenderOrigins() const
 
 
 	std::ranges::for_each(relevant_playbacks, [ps = &cgs->predictedPlayerState](const CPlayback* pb) {
-		if (auto xyo = WorldToScreen(pb->GetOrigin())) {
-			auto& xy = xyo.value();
+		if (const auto xyo = WorldToScreen(pb->GetOrigin())) {
+			const auto& xy = xyo.value();
 
-			float dist = R_ScaleByDistance(pb->GetOrigin().dist(ps->origin)) * 20.f;
+			const float dist = R_ScaleByDistance(pb->GetOrigin().dist(ps->origin)) * 20.f;
 			CG_DrawRotatedPic(0, 0, CG_GetScreenPlacement(), xy.x - dist / 2, xy.y - dist / 2, dist, dist, 180.f
 				, vec4_t{ 1,1,1,1 }, "compassping_friendly_mp");
 
@@ -63,26 +63,30 @@ void CRMovementRecorder::CG_RenderPrecision() const
 	char buff[64];
 	sprintf_s(buff, "Precision: %.6f\n", dist);
 
-	float x = R_GetTextCentered(buff, "fonts/normalfont", 320.f, 0.5f);
+	const float x = R_GetTextCentered(buff, "fonts/normalfont", 320.f, 0.5f);
 	R_AddCmdDrawTextWithEffects(buff, "fonts/normalfont", x, 260.f, 0.5f, 0.5f, 0.f, col, 3, glowCol, nullptr, nullptr, 0, 0, 0, 0);
 
 
 }
 void CRMovementRecorder::CG_RenderStatus() const
 {
-	constexpr float col[4] = { 0,1,0,1 };
-	constexpr float glowCol[4] = { 0,1,0,1 };
-
+	constexpr float glowCol[4] = { 1,1,1,1 };
 
 	if (IsRecording()) {
-		float x = R_GetTextCentered("recording", "fonts/normalfont", 320.f, 0.5f);
-		R_AddCmdDrawTextWithEffects((char*)"recording", "fonts/normalfont", x, 260, 0.5f, 0.5f, 0.f, col, 3, glowCol, nullptr, nullptr, 0, 0, 0, 0);
+
+		if (Recorder->IsWaiting()) {
+			float x = R_GetTextCentered("waiting", "fonts/normalfont", 320.f, 0.5f);
+			R_AddCmdDrawTextWithEffects((char*)"waiting", "fonts/normalfont", x, 260, 0.5f, 0.5f, 0.f, vec4_t{1,0,0,1}, 3, glowCol, nullptr, nullptr, 0, 0, 0, 0);
+			return;
+		}
+		const float x = R_GetTextCentered("recording", "fonts/normalfont", 320.f, 0.5f);
+		R_AddCmdDrawTextWithEffects((char*)"recording", "fonts/normalfont", x, 260, 0.5f, 0.5f, 0.f, vec4_t{ 0,1,0,1 }, 3, glowCol, nullptr, nullptr, 0, 0, 0, 0);
 		return;
 	}
 
 	else if (IsSegmenting() && Segmenter->ResultExists()) {
-		float x = R_GetTextCentered("segmenting", "fonts/normalfont", 320.f, 0.5f);
-		R_AddCmdDrawTextWithEffects((char*)"segmenting", "fonts/normalfont", x, 260, 0.5f, 0.5f, 0.f, col, 3, glowCol, nullptr, nullptr, 0, 0, 0, 0);
+		const float x = R_GetTextCentered("segmenting", "fonts/normalfont", 320.f, 0.5f);
+		R_AddCmdDrawTextWithEffects((char*)"segmenting", "fonts/normalfont", x, 260, 0.5f, 0.5f, 0.f, vec4_t{ 1,1,0,1 }, 3, glowCol, nullptr, nullptr, 0, 0, 0, 0);
 	}
 
 

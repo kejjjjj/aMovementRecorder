@@ -30,13 +30,18 @@ class CRecorder
 {
 public:
 	CRecorder() = default;
-	explicit CRecorder(bool start_from_movement) : m_bStartFromMove(start_from_movement){}
+	explicit CRecorder(bool start_from_movement, int start_timer = 0) : m_bStartFromMove(start_from_movement), m_iStartTimer(start_timer){}
 	~CRecorder();
 	void Record(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) noexcept;
+
+	inline bool IsWaiting() const noexcept { return m_iStartTimer > 0; }
 
 	std::vector<playback_cmd>&& StopRecording() noexcept;
 
 private:
 	std::vector<playback_cmd> data;
 	bool m_bStartFromMove = {};
+
+	//how many server frames will it take before the recording starts
+	int m_iStartTimer = {};
 };
