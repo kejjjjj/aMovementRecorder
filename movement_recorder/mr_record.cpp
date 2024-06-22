@@ -2,11 +2,26 @@
 #include <cg/cg_angles.hpp>
 #include "cg/cg_local.hpp"
 #include <bg/bg_pmove_simulation.hpp>
+#include <algorithm>
+#include <com/com_channel.hpp>
+#include <iostream>
 
 
 CRecorder::~CRecorder() = default;
 void CRecorder::Record(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) noexcept
 {
+	if (IsWaiting()) {
+		m_iStartTimer = std::clamp(m_iStartTimer - (cmd->serverTime - oldcmd->serverTime), 0, m_iStartTimer);
+		
+		//don't allow any inputs while waiting
+		cmd->forwardmove = 0;
+		cmd->rightmove = 0;
+		cmd->buttons = 0;
+
+		if(IsWaiting())
+			return;
+	}
+
 	if ((cmd->forwardmove == 0 && cmd->rightmove == 0) && m_bStartFromMove && data.empty()) {
 		return;
 	}

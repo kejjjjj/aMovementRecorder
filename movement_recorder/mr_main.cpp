@@ -20,6 +20,11 @@ std::unique_ptr<CGuiMovementRecorder> CStaticMovementRecorder::Instance = std::m
 CMovementRecorder::~CMovementRecorder() = default;
 void CMovementRecorder::Update(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd)
 {
+
+	UpdateLineup(cmd, oldcmd);
+	UpdatePlaybackQueue(cmd, oldcmd);
+
+	//Moved these below so that the recorder/segmenter gets the newest cmds
 	if (Recorder) {
 		//CL_FixedTime(cmd, oldcmd);
 		Recorder->Record(ps, cmd, oldcmd);
@@ -30,14 +35,12 @@ void CMovementRecorder::Update(playerState_s* ps, usercmd_s* cmd, usercmd_s* old
 		Segmenter.reset();
 
 	}
-
-	UpdateLineup(cmd, oldcmd);
-	UpdatePlaybackQueue(cmd, oldcmd);
 }
 
 void CMovementRecorder::StartRecording(bool start_from_movement) {
 	PendingRecording.reset();
-	Recorder = std::make_unique<CRecorder>(start_from_movement);
+	//wait 300 server frames before starting the recoding so that SetOrigin() has enough time to set the position 
+	Recorder = std::make_unique<CRecorder>(start_from_movement, 300);
 }
 void CMovementRecorder::StopRecording() {
 	if (!Recorder)
@@ -68,9 +71,8 @@ bool CMovementRecorder::IsSegmenting() const noexcept { return Segmenter != null
 void CMovementRecorder::OnPositionLoaded()
 {
 	if (Recorder) {
-		Com_Printf("yo\n");
 		StopRecording();
-		//start a next recorder instance that starts recording in 100ms
+
 		StartRecording(true);
 	}
 
@@ -125,6 +127,9 @@ void CMovementRecorder::SelectPlayback()
 				relevant_playbacks.push_back(pb.second.get());
 			});
 
+		//guess there's nothing :(
+		if (relevant_playbacks.empty())
+			return;
 
 		//get closest playback
 		const auto closest = std::min_element(relevant_playbacks.begin(), relevant_playbacks.end(),
