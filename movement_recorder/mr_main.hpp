@@ -64,6 +64,9 @@ public:
 
 	CPlayback* GetActive();
 	CPlayback* GetActive() const;
+
+	bool DoingPlayback() const noexcept;
+
 protected:
 
 	//Segmenting
@@ -141,6 +144,8 @@ public:
 	static void TeleportTo();
 	static void Update();
 	static void Clear();
+
+	static bool DoingPlayback();
 
 	static CGuiMovementRecorder* Get();
 

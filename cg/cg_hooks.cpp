@@ -40,8 +40,7 @@ void CG_CreatePermaHooks()
 
 void CG_CreateHooks()
 {
-	hooktable::preserver<void, usercmd_s*>(HOOK_PREFIX("CL_FinishMove"), 0x463A60u, CL_FinishMove);
-	hooktable::preserver<void>(HOOK_PREFIX("CG_DrawActive"), COD4X::get() ? COD4X::get() + 0x5464 : 0x42F7F0, CG_DrawActive);
+	
 	hooktable::preserver<void, int>(HOOK_PREFIX("CL_Disconnect"), 0x4696B0, CL_Disconnect);
 	hooktable::preserver<void>(HOOK_PREFIX("PM_Weapon_FinishWeaponChangeASM"), 0x41A5F7, PM_Weapon_FinishWeaponChangeASM);
 
@@ -54,6 +53,9 @@ void CG_CreateHooks()
 		BG_WeaponNames = reinterpret_cast<WeaponDef**>(COD4X::get() + 0x443DDE0);
 	}
 #if(DEBUG_SUPPORT)
+	hooktable::preserver<void, usercmd_s*>(HOOK_PREFIX("CL_FinishMove"), 0x463A60u, CL_FinishMove);
+	hooktable::preserver<void>(HOOK_PREFIX("CG_DrawActive"), COD4X::get() ? COD4X::get() + 0x5464 : 0x42F7F0, CG_DrawActive);
+
 	hooktable::preserver<void>(HOOK_PREFIX("R_RecoverLostDevice"), 0x5F5360, R_RecoverLostDevice);
 	hooktable::preserver<void>(HOOK_PREFIX("CL_ShutdownRenderer"), 0x46CA40, CL_ShutdownRenderer);
 	hooktable::preserver<LRESULT, HWND, UINT, WPARAM, LPARAM>(HOOK_PREFIX("WndProc"), COD4X::get() ? COD4X::get() + 0x801D6 : 0x57BB20, WndProc);

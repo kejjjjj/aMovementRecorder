@@ -17,8 +17,8 @@ using fvec3 = vec3<float>;
 class CPlayback
 {
 public:
-	CPlayback(std::vector<playback_cmd>&& data, int g_speed = 190, bool jump_slowdownEnable = false);
-	explicit CPlayback(const std::vector<playback_cmd>& _data, int g_speed = 190, bool jump_slowdownEnable = false);
+	CPlayback(std::vector<playback_cmd>&& data, int g_speed = 190, char jump_slowdownEnable = false);
+	explicit CPlayback(const std::vector<playback_cmd>& _data, int g_speed = 190, char jump_slowdownEnable = false);
 	~CPlayback();
 	void DoPlayback(usercmd_s* cmd, usercmd_s* oldcmd);
 	bool IsPlayback() const noexcept;
@@ -62,7 +62,7 @@ private:
 	//std::span<playback_cmd>::iterator icmd;
 
 	int m_iSpeed = 190;
-	bool m_jumpSlowdownEnable = false;
+	slowdown_t m_jumpSlowdownEnable = disabled;
 
 };
 

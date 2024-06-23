@@ -14,6 +14,7 @@
 #include <fs/fs_globals.hpp>
 #include <Windows.h>
 #include "bg/bg_pmove_simulation.hpp"
+#include <cl/cl_utils.hpp>
 
 
 std::unique_ptr<CGuiMovementRecorder> CStaticMovementRecorder::Instance = std::make_unique<CGuiMovementRecorder>();
@@ -102,6 +103,14 @@ CPlayback* CMovementRecorder::GetActive() const {
 
 	return PlaybackActive;
 
+}
+bool CMovementRecorder::DoingPlayback() const noexcept
+{
+	//currently attempting to segment the current playback, but the user hasn't touched any keys yet
+	if (Segmenter && !Segmenter->ResultExists())
+		return true;
+
+	return PlaybackActive;
 }
 void CMovementRecorder::SelectPlayback()
 {
@@ -371,5 +380,10 @@ void CStaticMovementRecorder::Update()
 void CStaticMovementRecorder::Clear() {
 	Instance->PendingRecording.reset();
 };
+
+bool CStaticMovementRecorder::DoingPlayback()
+{
+	return Instance->DoingPlayback();
+}
 CGuiMovementRecorder* CStaticMovementRecorder::Get() { return Instance.get(); }
 

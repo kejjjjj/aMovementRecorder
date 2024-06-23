@@ -9,7 +9,7 @@
 #include <cg/cg_client.hpp>
 #include <com/com_channel.hpp>
 
-CPlayback::CPlayback(std::vector<playback_cmd>&& _data, int g_speed, bool jump_slowdownEnable)
+CPlayback::CPlayback(std::vector<playback_cmd>&& _data, int g_speed, char jump_slowdownEnable)
 	: cmds(std::forward<std::vector<playback_cmd>&&>(_data)) {
 	m_iCmd = 0u;
 
@@ -17,7 +17,7 @@ CPlayback::CPlayback(std::vector<playback_cmd>&& _data, int g_speed, bool jump_s
 
 	m_objHeader = { .m_iSpeed = g_speed, .m_bJumpSlowdownEnable = slowdown_t(jump_slowdownEnable) };
 }
-CPlayback::CPlayback(const std::vector<playback_cmd>& _data, int g_speed, bool jump_slowdownEnable)
+CPlayback::CPlayback(const std::vector<playback_cmd>& _data, int g_speed, char jump_slowdownEnable)
 	: cmds(_data) {
 	m_iCmd = 0u;
 
@@ -90,7 +90,8 @@ void CPlayback::StopPlayback()
 }
 bool CPlayback::IsCompatibleWithState(const playerState_s* ps) const noexcept {
 	return CG_GetSpeed(ps) == m_iSpeed && 
-		(m_jumpSlowdownEnable == both || Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled == m_jumpSlowdownEnable);
+		(m_jumpSlowdownEnable == both || 
+			static_cast<slowdown_t>(Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled) == m_jumpSlowdownEnable);
 }
 fvec3 CPlayback::GetOrigin() const noexcept { return cmds.front().origin; }
 fvec3 CPlayback::GetAngles() const noexcept { return cmds.front().viewangles; }

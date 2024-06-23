@@ -8,6 +8,7 @@
 #include "cg/cg_local.hpp"
 #include "cg/cg_offsets.hpp"
 #include "main.hpp"
+#include <r/r_utils.hpp>
 long __stdcall R_EndScene(IDirect3DDevice9* device)
 {
 	if (R_NoRender())
@@ -24,9 +25,9 @@ long __stdcall R_EndScene(IDirect3DDevice9* device)
 	return hooktable::find<long, IDirect3DDevice9*>(HOOK_PREFIX(__func__))->call(device);
 }
 #else
-void R_EndScene([[maybe_unused]] IDirect3DDevice9* device)
+long __stdcall R_EndScene([[maybe_unused]]IDirect3DDevice9* device)
 {
 	
-
+	return 0;
 }
 #endif

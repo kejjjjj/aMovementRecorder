@@ -63,6 +63,8 @@ void CG_Init()
 }
 
 #else
+#include <cl/cl_move.hpp>
+#include <iostream>
 void CG_Init()
 {
     while (!CMain::Shared::AddFunction || !CMain::Shared::GetFunction) {
@@ -88,6 +90,15 @@ void CG_Init()
     CMain::Shared::GetFunctionOrExit("AddItem")->As<CGuiElement*, std::unique_ptr<CGuiElement>&&>()
         ->Call(std::make_unique<CMovementRecorderWindow>(NVAR_TABLE_NAME));
 
+    //add the functions that need to be managed by the main module
+    //CMain::Shared::GetFunctionOrExit("Queue_CG_DrawActive")->As<void, drawactive_t>()->Call(CG_DrawActive);
+
+    std::cout << CMain::Shared::GetFunctionOrExit("Queue_CG_DrawActive")->As<void, drawactive_t>() << '\n';
+
+    CMain::Shared::GetFunctionOrExit("Queue_CG_DrawActive")->As<void, drawactive_t>()->Call(CG_DrawActive);
+    CMain::Shared::GetFunctionOrExit("Queue_CL_FinishMove")->As<void, finishmove_t>()->Call(CL_FinishMove);
+    //CMain::Shared::GetFunctionOrExit("Queue_R_EndScene")->As<void, endscene_t&&>()->Call(R_EndScene);
+
     Cmd_AddCommand("mr_record", CStaticMovementRecorder::ToggleRecording);
     Cmd_AddCommand("mr_playback", CStaticMovementRecorder::SetPlayback);
     Cmd_AddCommand("mr_save", CStaticMovementRecorder::Save);
@@ -97,6 +108,7 @@ void CG_Init()
 #pragma warning(suppress : 6011) //false positive
     CMain::Shared::AddFunction(
         std::make_unique<CSharedFunction<void, std::vector<playback_cmd>&&, int, bool>>("AddPlayback", &CStaticMovementRecorder::PushPlayback));
+    CMain::Shared::AddFunction(std::make_unique<CSharedFunction<bool>>("PlaybackActive", CStaticMovementRecorder::DoingPlayback));
 
     CG_CreatePermaHooks();
 

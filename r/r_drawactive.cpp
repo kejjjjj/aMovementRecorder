@@ -7,9 +7,12 @@
 
 void CG_DrawActive()
 {
-	if(R_NoRender())
+	if (R_NoRender())
+#if(DEBUG_SUPPORT)
 		return hooktable::find<void>(HOOK_PREFIX(__func__))->call();
-
+#else
+		return;
+#endif
 	//constexpr float col[4] = { 1,1,1,1 };
 	//constexpr float glowCol[4] = { 1,0,0,1 };
 
@@ -20,6 +23,9 @@ void CG_DrawActive()
 	//R_AddCmdDrawTextWithEffects(buff, "fonts/normalfont", x, 260.f, 0.5f, 0.5f, 0.f, col, 3, glowCol, nullptr, nullptr, 0, 0, 0, 0);
 
 	CStaticMovementRecorder::Instance->CG_Render();
+
+#if(DEBUG_SUPPORT)
 	return hooktable::find<void>(HOOK_PREFIX(__func__))->call();
+#endif
 
 }
