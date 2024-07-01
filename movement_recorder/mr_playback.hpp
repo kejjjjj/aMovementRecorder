@@ -59,10 +59,6 @@ private:
 #pragma pack(pop)
 
 	std::size_t m_iCmd = 0u;
-	//std::span<playback_cmd>::iterator icmd;
-
-	int m_iSpeed = 190;
-	slowdown_t m_jumpSlowdownEnable = disabled;
 
 };
 

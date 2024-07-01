@@ -41,14 +41,12 @@ void CPlayback::DoPlayback(usercmd_s* cmd, usercmd_s* oldcmd)
 		return;
 
 	auto icmd = &cmds[m_iCmd];
-
-	int FPS = 500;
 	const int Delta = icmd->serverTime - icmd->oldTime;
 
 	if (Delta) {
-		FPS = 1000 / Delta;
-	}else
-		Com_Printf("^2bad delta\n");
+		int FPS = 1000 / Delta;
+		Dvar_FindMalleableVar("com_maxfps")->current.integer = FPS;
+	}
 
 	for (int i = 0; i < 3; i++) {
 		cmd->angles[i] = ANGLE2SHORT(AngleDelta(icmd->deltas[i], cgs->predictedPlayerState.delta_angles[i]));
@@ -65,8 +63,6 @@ void CPlayback::DoPlayback(usercmd_s* cmd, usercmd_s* oldcmd)
 	cmd->forwardmove = icmd->forwardmove;
 	cmd->rightmove = icmd->rightmove;
 	cmd->buttons = icmd->buttons;
-
-	Dvar_FindMalleableVar("com_maxfps")->current.integer = FPS;
 
 	m_iCmd++;
 
@@ -88,10 +84,11 @@ void CPlayback::StopPlayback()
 { 
 	m_iCmd = cmds.size();
 }
-bool CPlayback::IsCompatibleWithState(const playerState_s* ps) const noexcept {
-	return CG_GetSpeed(ps) == m_iSpeed && 
-		(m_jumpSlowdownEnable == both || 
-			static_cast<slowdown_t>(Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled) == m_jumpSlowdownEnable);
+bool CPlayback::IsCompatibleWithState(const playerState_s* ps) const noexcept 
+{
+	return CG_GetSpeed(ps) == m_objHeader.m_iSpeed &&
+		(m_objHeader.m_bJumpSlowdownEnable == both || 
+			static_cast<slowdown_t>(Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled) == m_objHeader.m_bJumpSlowdownEnable);
 }
 fvec3 CPlayback::GetOrigin() const noexcept { return cmds.front().origin; }
 fvec3 CPlayback::GetAngles() const noexcept { return cmds.front().viewangles; }

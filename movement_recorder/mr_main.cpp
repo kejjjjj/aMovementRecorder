@@ -277,6 +277,7 @@ void CStaticMovementRecorder::PushPlaybackCopy(const std::vector<playback_cmd>& 
 
 void CStaticMovementRecorder::OnDisconnect() {
 	m_bPlaybacksLoaded = false;
+
 	return Instance->OnDisconnect();
 }
 void CStaticMovementRecorder::Save() {

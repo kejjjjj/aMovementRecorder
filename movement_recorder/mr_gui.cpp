@@ -5,7 +5,9 @@
 #include "dvar/dvar.hpp"
 #include "bg/bg_pmove_simulation.hpp"
 
-CPlaybackGui::CPlaybackGui(CPlayback& owner, const std::string name) : m_refOwner(owner), m_sName(name) {}
+CPlaybackGui::CPlaybackGui(CPlayback& owner, const std::string name) : m_refOwner(owner), m_sName(name) {
+	m_iCurrentSlowdown = static_cast<int>(m_refOwner.m_objHeader.m_bJumpSlowdownEnable);
+}
 CPlaybackGui::~CPlaybackGui() = default;
 
 void CPlaybackGui::Render()
@@ -36,7 +38,12 @@ void CPlaybackGui::Render()
 			else {
 				Com_Printf("^2saved!\n");
 				m_uChanges = {};
+
+				//refresh all playbacks
+				CStaticMovementRecorder::m_bPlaybacksLoaded = false;
 			}
+
+
 
 		}
 
@@ -61,4 +68,10 @@ void CGuiMovementRecorder::Gui_RenderLocals()
 	else
 		ImGui::TextCentered("Much empty... :(");
 
+}
+void CGuiMovementRecorder::OnDisconnect()
+{
+	m_pItem = {};
+	m_uSelectedIndex = {};
+	return CMovementRecorder::OnDisconnect();
 }

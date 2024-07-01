@@ -124,6 +124,8 @@ public:
 	void Gui_RenderLocals();
 
 private:
+	void OnDisconnect();
+
 	size_t m_uSelectedIndex = {};
 	std::unique_ptr<CPlaybackGui> m_pItem;
 };
@@ -148,6 +150,8 @@ public:
 	static bool DoingPlayback();
 
 	static CGuiMovementRecorder* Get();
+
+	friend class CPlaybackGui;
 
 private:
 	static void Load(const std::string& name);

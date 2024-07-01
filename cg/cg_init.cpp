@@ -51,9 +51,9 @@ void CG_Init()
     NVarTables::tables[NVAR_TABLE_NAME] = std::make_unique<NVarTable>(NVAR_TABLE_NAME);
     auto table = NVarTables::Get();
 
-    table->AddImNvar<bool, ImCheckbox>("Show Origins", true, bool_to_string);
-    table->AddImNvar<bool, ImCheckbox>("Segmenting", true, bool_to_string);
-    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, arithmetic_to_string<float>, 0.f, 1.f, "%.6f");
+    table->AddImNvar<bool, ImCheckbox>("Show Origins", true, NVar_ArithmeticToString<bool>);
+    table->AddImNvar<bool, ImCheckbox>("Segmenting", true, NVar_ArithmeticToString<bool>);
+    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, 0.f, 1.f, "%.6f");
 
     if (table->SaveFileExists())
         table->ReadNVarsFromFile();
@@ -78,9 +78,9 @@ void CG_Init()
     (*NVarTables::tables)[NVAR_TABLE_NAME] = std::make_unique<NVarTable>(NVAR_TABLE_NAME);
     const auto table = (*NVarTables::tables)[NVAR_TABLE_NAME].get();
 
-    table->AddImNvar<bool, ImCheckbox>("Show Origins", true, bool_to_string);
-    table->AddImNvar<bool, ImCheckbox>("Segmenting", true, bool_to_string);
-    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, arithmetic_to_string<float>, 0.f, 1.f, "%.6f");
+    table->AddImNvar<bool, ImCheckbox>("Show Origins", true, NVar_ArithmeticToString<bool>);
+    table->AddImNvar<bool, ImCheckbox>("Segmenting", true, NVar_ArithmeticToString<bool>);
+    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, 0.f, 1.f, "%.6f");
 
     if (table->SaveFileExists())
         table->ReadNVarsFromFile();
@@ -92,8 +92,6 @@ void CG_Init()
 
     //add the functions that need to be managed by the main module
     //CMain::Shared::GetFunctionOrExit("Queue_CG_DrawActive")->As<void, drawactive_t>()->Call(CG_DrawActive);
-
-    std::cout << CMain::Shared::GetFunctionOrExit("Queue_CG_DrawActive")->As<void, drawactive_t>() << '\n';
 
     CMain::Shared::GetFunctionOrExit("Queue_CG_DrawActive")->As<void, drawactive_t>()->Call(CG_DrawActive);
     CMain::Shared::GetFunctionOrExit("Queue_CL_FinishMove")->As<void, finishmove_t>()->Call(CL_FinishMove);

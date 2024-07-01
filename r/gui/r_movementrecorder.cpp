@@ -3,6 +3,7 @@
 #include "net/nvar_table.hpp"
 #include "movement_recorder/mr_main.hpp"
 #include <r/gui/r_main_gui.hpp>
+#include <iostream>
 
 
 CMovementRecorderWindow::CMovementRecorderWindow(const std::string& name)
@@ -12,13 +13,16 @@ CMovementRecorderWindow::CMovementRecorderWindow(const std::string& name)
 
 void CMovementRecorderWindow::Render()
 {
-	auto table = NVarTables::Get(NVAR_TABLE_NAME);
+	const auto table = NVarTables::Get(NVAR_TABLE_NAME);
 
-	for (auto& v : *table) {
+	if (!table)
+		return;
 
-		auto& [key, value] = v;
+	for (const auto& v : *table) {
 
-		if (value->IsImNVar()) {
+		const auto& [key, value] = v;
+
+		if (value && value->IsImNVar()) {
 			std::string _v_ = key + "_menu";
 			ImGui::BeginChild(_v_.c_str(), ImVec2(0, 0), ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Border);
 			value->RenderImNVar();
@@ -50,7 +54,7 @@ void CMovementRecorderWindow::Render()
 	}
 
 
-	ImGui::EndChild();
+	//ImGui::EndChild();
 
 
 }
