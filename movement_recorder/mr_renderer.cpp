@@ -14,16 +14,17 @@ void CRMovementRecorder::CG_Render()
 {
 	CStaticMovementRecorder::Update();
 
-	CG_RenderOrigins();
-	CG_RenderPrecision();
-	CG_RenderStatus();
+	if (NVar_FindMalleableVar<bool>("Show Origins")->Get())
+		CG_RenderOrigins();
+
+	if (NVar_FindMalleableVar<bool>("Status Text")->Get()) {
+		CG_RenderPrecision();
+		CG_RenderStatus();
+	}
 }
 
 void CRMovementRecorder::CG_RenderOrigins() const
 {
-	if (!NVar_FindMalleableVar<bool>("Show Origins")->Get())
-		return;
-
 	using playback_t = std::remove_reference<decltype(*LevelPlaybacks.begin())>::type;
 
 	std::vector<CPlayback*> relevant_playbacks;
@@ -43,6 +44,21 @@ void CRMovementRecorder::CG_RenderOrigins() const
 
 		}});
 }
+
+#define RGBA(r,g,b,a) vec4_t{r,g,b,a}
+
+constexpr float x_pos = 320.f;
+constexpr float y_pos = 400.f;
+constexpr char font[] = "fonts/objectivefont";
+constexpr float font_scale = 0.25f;
+
+static void CG_RenderStatusText(const char* string, const vec4_t color, const vec4_t glow_col = 0)
+{
+	const float x = R_GetTextCentered(string, font, x_pos, font_scale);
+	R_AddCmdDrawTextWithEffects((char*)string, font, x, y_pos, font_scale, font_scale, 0.f, color, 3, glow_col, nullptr, nullptr, 0, 0, 0, 0);
+
+}
+
 void CRMovementRecorder::CG_RenderPrecision() const
 {
 	const auto Active = GetActive();
@@ -52,42 +68,31 @@ void CRMovementRecorder::CG_RenderPrecision() const
 	if (IsSegmenting() && Segmenter->ResultExists())
 		return;
 
-	constexpr float col[4] = { 1,1,1,1 };
-	constexpr float glowCol[4] = { 1,0,0,1 };
-
-
 	const auto iter = Active->GetIterator();
-	if (!iter) return;
-	const auto dist = iter->origin.dist(cgs->predictedPlayerState.origin);
+
+	if (!iter) 
+		return;
+
+	const auto dist = iter->origin.dist(clients->cgameOrigin);
 
 	char buff[64];
 	sprintf_s(buff, "Precision: %.6f\n", dist);
-
-	const float x = R_GetTextCentered(buff, "fonts/normalfont", 320.f, 0.5f);
-	R_AddCmdDrawTextWithEffects(buff, "fonts/normalfont", x, 260.f, 0.5f, 0.5f, 0.f, col, 3, glowCol, nullptr, nullptr, 0, 0, 0, 0);
-
+	CG_RenderStatusText(buff, RGBA(1,1,1,1), RGBA(1,0,0,1));
 
 }
+
 void CRMovementRecorder::CG_RenderStatus() const
 {
-	constexpr float glowCol[4] = { 1,1,1,1 };
-
 	if (IsRecording()) {
+		if (Recorder->IsWaiting()) 
+			return CG_RenderStatusText("waiting", RGBA(1,0,0,1));
+		
+		CG_RenderStatusText("recording", RGBA(0, 1, 0, 1));
 
-		if (Recorder->IsWaiting()) {
-			float x = R_GetTextCentered("waiting", "fonts/normalfont", 320.f, 0.5f);
-			R_AddCmdDrawTextWithEffects((char*)"waiting", "fonts/normalfont", x, 260, 0.5f, 0.5f, 0.f, vec4_t{1,0,0,1}, 3, glowCol, nullptr, nullptr, 0, 0, 0, 0);
-			return;
-		}
-		const float x = R_GetTextCentered("recording", "fonts/normalfont", 320.f, 0.5f);
-		R_AddCmdDrawTextWithEffects((char*)"recording", "fonts/normalfont", x, 260, 0.5f, 0.5f, 0.f, vec4_t{ 0,1,0,1 }, 3, glowCol, nullptr, nullptr, 0, 0, 0, 0);
-		return;
 	}
 
-	else if (IsSegmenting() && Segmenter->ResultExists()) {
-		const float x = R_GetTextCentered("segmenting", "fonts/normalfont", 320.f, 0.5f);
-		R_AddCmdDrawTextWithEffects((char*)"segmenting", "fonts/normalfont", x, 260, 0.5f, 0.5f, 0.f, vec4_t{ 1,1,0,1 }, 3, glowCol, nullptr, nullptr, 0, 0, 0, 0);
-	}
-
+	else if (IsSegmenting() && Segmenter->ResultExists()) 
+		CG_RenderStatusText("segmenting", RGBA(1, 1, 0, 1));
+	
 
 }

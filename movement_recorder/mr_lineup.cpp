@@ -27,78 +27,104 @@ CLineup::CLineup(const fvec3& target, const fvec3& destination_angles, float lin
 	m_vecOldOrigin = cgs->predictedPlayerState.origin;
 	m_vecTargetAngles = cgs->predictedPlayerState.viewangles;
 
-	m_fTotalDistance = m_vecOldOrigin.dist(target);
-	
+	m_fTotalDistance = m_vecOldOrigin.xy().dist(target);
+	m_vecClosestDeltas = { 180.f };
 	//50% chance to lineup while crouched
 	m_iCmdButtons = cmdEnums::crouch * bool(std::round(random(1.f)));
 }
 
 
-bool CLineup::Update(usercmd_s* cmd, usercmd_s* oldcmd) noexcept
+bool CLineup::Update(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd) noexcept
 {
 	if (!CanPathfind() || WASD_PRESSED()) {
-		m_eState = gave_up;
+		m_eState = State::gave_up;
 		return false;
 	}
 
 	if (m_uAccuracyTestFrames > 0)
 		return --m_uAccuracyTestFrames, true;
 
-	if (m_vecDestination.dist(cgs->predictedPlayerState.origin) <= m_fLineupAccuracy
+	if (m_vecDestination.xy().dist(cgs->predictedPlayerState.origin) <= m_fLineupAccuracy
 		&& fvec2(cgs->predictedPlayerState.velocity).MagSq() == 0.f) {
-		m_eState = finished;
+		m_eState = State::finished;
+	}
+
+	if (m_eState == finished && m_eAngleState == finished) {
 		return false;
 	}
 
-	if (Finished())
-		return false;
-
-
-	UpdateViewangles();
+	UpdateViewangles(cmd);
 	UpdateOrigin();
-
+	
 	m_fYawToTarget = AngleNormalize180((m_vecDestination - fvec3(cgs->predictedPlayerState.origin)).toangles().y);
 
 	MoveCloser(cmd, oldcmd);
-
 	CreatePlayback(cmd, oldcmd);
+
+	
+
 
 	return true;
 
 }
-void CLineup::UpdateViewangles()
+float GetShorterPath(float source, float destination)
 {
-	const fvec3& viewangles = (fvec3&)cgs->predictedPlayerState.viewangles;
+	float angular_difference = destination - source;
+	float destination_angle = destination;
+
+	if (abs(angular_difference) > 180)
+		destination_angle += 360;
+
+	angular_difference = destination_angle - source;
+
+	return angular_difference;
+
+}
+void CLineup::UpdateViewangles([[maybe_unused]]usercmd_s* cmd)
+{
+	auto ps = &cgs->predictedPlayerState;
+
+	const fvec3& viewangles = ps->viewangles;
 
 	if (viewangles.dist(m_vecDestinationAngles) < 0.01f) {
+		m_eAngleState = finished;
 		return;
 	}
 
-	fvec3 angle_delta = m_vecDestinationAngles - viewangles;
-	fvec3 destination_angles = m_vecDestinationAngles;
+	fvec3 destination_deltas = m_vecDestinationAngles.for_each([this, &viewangles, i = 0](float v) mutable {
+		return GetShorterPath(viewangles[i++], v); });
 	
-	for(int i = 0; i < 3; i++){
-		if (abs(angle_delta[i]) > 180) {
-			destination_angles[i] += 360;
-		}
-	}
 
-	angle_delta = destination_angles - viewangles;
-	fvec3 new_deltas = angle_delta / abs(m_fTotalDistance - m_fDistanceMoved);
-	m_vecTargetAngles = viewangles + new_deltas;
+
+	//don't turn too quickly
+	destination_deltas = fvec3().smooth(destination_deltas, m_fDistanceMoved / m_fTotalDistance + 0.001f);
+
+	//clamp and randomize to avoid suspicious deltas
+	const float scale = random(0.5f, 1.f);
+	destination_deltas = destination_deltas.clamp(-2.f * scale, 2.f * scale);
+
+	m_vecTargetAngles = viewangles + destination_deltas;
+	m_ivecTargetCmdAngles = m_vecTargetAngles.angle_delta(ps->delta_angles).to_short();
+
+	if (m_eState == finished)
+		(ivec3&)cmd->angles = m_ivecTargetCmdAngles;
+
+
 }
 void CLineup::UpdateOrigin()
 {
 	fvec3& origin = (fvec3&)cgs->predictedPlayerState.origin;
-	fvec3 move_delta = (fvec3(origin) - m_vecOldOrigin).abs();
+	m_fDistanceMoved = m_fTotalDistance - origin.xy().dist(m_vecDestination);
 
-	m_fDistanceMoved += move_delta.mag();
 	m_vecOldOrigin = origin;
 }
 void CLineup::MoveCloser(usercmd_s* cmd, usercmd_s* oldcmd)
 {
+	if (m_eState == finished)
+		return;
+
 	auto ps = &cgs->predictedPlayerState;
-	const fvec3& viewangles = (fvec3&)ps->viewangles;
+	const fvec3 viewangles = ps->viewangles;
 	const fvec3& origin = (fvec3&)ps->origin;
 
 
@@ -138,29 +164,41 @@ void CLineup::MoveCloser(usercmd_s* cmd, usercmd_s* oldcmd)
 	
 }
 
-void CLineup::CreatePlayback(usercmd_s* cmd, usercmd_s* oldcmd) const
+void CLineup::CreatePlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd) const
 {
 	if (m_uAccuracyTestFrames)
 		return;
 
 	auto ps = &cgs->predictedPlayerState;
 
-	VectorCopy(m_vecTargetAngles, ps->viewangles);
-	std::vector<playback_cmd> cmds = { playback_cmd::FromPlayerState(ps, cmd, oldcmd) };
-	cmds[0].serverTime = cmds[0].oldTime + (1000 / LINEUP_FPS);
-	CStaticMovementRecorder::PushPlaybackCopy(cmds, CG_GetSpeed(&cgs->predictedPlayerState), CG_HasJumpSlowdown());
+	playback_cmd pcmd;
+	pcmd.buttons = cmd->buttons;
+	pcmd.forwardmove = cmd->forwardmove;
+	pcmd.offhand = cmd->offHandIndex;
+	pcmd.origin = ps->origin;
+	pcmd.rightmove = cmd->rightmove;
+	pcmd.velocity = ps->velocity;
+	pcmd.weapon = cmd->weapon;
+
+	pcmd.oldTime = cmd->serverTime;
+	pcmd.serverTime = pcmd.oldTime + (1000 / LINEUP_FPS);
+	pcmd.viewangles = (m_ivecTargetCmdAngles.from_short() + ps->delta_angles).normalize180();
+
+	CStaticMovementRecorder::PushPlaybackCopy({ pcmd }, CG_GetSpeed(&cgs->predictedPlayerState), CG_HasJumpSlowdown());
+
 }
 bool CLineup::CanPathfind() const noexcept
 {
 	auto ps = &cgs->predictedPlayerState;
-	if (m_vecDestination.dist_sq(ps->origin) < 10 * 10)
+	if (m_vecDestination.dist_sq(ps->origin) < 300 * 300)
 		return true;
-
-	fvec3 o = ps->origin;
-	o.z += ps->viewHeightTarget;
-	trace_t trace;
-	CG_TracePoint(vec3_t{ 1,1,1 }, &trace, o, vec3_t{ -1,-1,-1 }, &m_vecDestination.x, cgs->clientNum, MASK_PLAYERSOLID, 0, 0);
-	return trace.fraction >= 0.98f;
+	
+	return false;
+	//fvec3 o = ps->origin;
+	//o.z += ps->viewHeightTarget;
+	//trace_t trace;
+	//CG_TracePoint(vec3_t{ 1,1,1 }, &trace, o, vec3_t{ -1,-1,-1 }, &m_vecDestination.x, cgs->clientNum, MASK_PLAYERSOLID, 0, 0);
+	//return trace.fraction >= 0.98f;
 }
 std::vector<playback_cmd> CLineup::PredictStopPosition(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) const
 {
@@ -178,12 +216,16 @@ std::vector<playback_cmd> CLineup::PredictStopPosition(playerState_s* ps, usercm
 
 	CPmoveSimulation simulation(&pm, c);
 
+
+	
 	while (pm.ps->velocity[0] != 0.f || pm.ps->velocity[1] != 0.f || pm.ps->velocity[2] != 0.f) {
 		simulation.Simulate();
 		c.forwardmove = 0;
 		c.rightmove = 0;
 
 		cmds.emplace_back(playback_cmd::FromPlayerState(pm.ps, &pm.cmd, &pm.oldcmd));
+
+		memcpy(&pm.oldcmd, &pm.cmd, sizeof(pm.oldcmd));
 	}
 
 	if(cmds.empty())

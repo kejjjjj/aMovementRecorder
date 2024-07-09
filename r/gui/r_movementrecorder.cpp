@@ -4,6 +4,7 @@
 #include "movement_recorder/mr_main.hpp"
 #include <r/gui/r_main_gui.hpp>
 #include <iostream>
+#include <shared/sv_shared.hpp>
 
 
 CMovementRecorderWindow::CMovementRecorderWindow(const std::string& name)
@@ -13,6 +14,18 @@ CMovementRecorderWindow::CMovementRecorderWindow(const std::string& name)
 
 void CMovementRecorderWindow::Render()
 {
+#if(!DEBUG_SUPPORT)
+	static auto func = CMain::Shared::GetFunctionSafe("GetContext");
+
+	if (!func) {
+		func = CMain::Shared::GetFunctionSafe("GetContext");
+		return;
+	}
+
+	ImGui::SetCurrentContext(func->As<ImGuiContext*>()->Call());
+
+#endif
+
 	const auto table = NVarTables::Get(NVAR_TABLE_NAME);
 
 	if (!table)

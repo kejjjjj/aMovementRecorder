@@ -25,9 +25,8 @@ void CMovementRecorder::Update(playerState_s* ps, usercmd_s* cmd, usercmd_s* old
 	UpdateLineup(cmd, oldcmd);
 	UpdatePlaybackQueue(cmd, oldcmd);
 
-	//Moved these below so that the recorder/segmenter gets the newest cmds
+	//Moved these below so that the recorder&segmenter gets the newest cmds
 	if (Recorder) {
-		//CL_FixedTime(cmd, oldcmd);
 		Recorder->Record(ps, cmd, oldcmd);
 	}
 
@@ -40,6 +39,7 @@ void CMovementRecorder::Update(playerState_s* ps, usercmd_s* cmd, usercmd_s* old
 
 void CMovementRecorder::StartRecording(bool start_from_movement) {
 	PendingRecording.reset();
+
 	//wait 300 server frames before starting the recoding so that SetOrigin() has enough time to set the position 
 	Recorder = std::make_unique<CRecorder>(start_from_movement, 300);
 }
@@ -226,8 +226,6 @@ void CMovementRecorder::UpdatePlaybackQueue(usercmd_s* cmd, [[maybe_unused]]user
 	if (PlaybackQueue.empty())
 		return;
 
-	//CL_FixedTime(cmd, oldcmd);
-
 	auto ps = &cgs->predictedPlayerState;
 
 	//set a new active
@@ -243,7 +241,6 @@ void CMovementRecorder::UpdatePlaybackQueue(usercmd_s* cmd, [[maybe_unused]]user
 	if (!PlaybackActive->IsPlayback()) {
 		PlaybackActive = {};
 		PlaybackQueue.pop();
-		CL_SetPlayerAngles(cmd, ps->delta_angles, ps->viewangles);
 		return;
 	}
 

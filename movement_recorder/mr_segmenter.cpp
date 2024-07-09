@@ -27,7 +27,6 @@ public:
 		if (!m_oRecorder && WASD_PRESSED()) {
 			m_oRecorder = std::make_unique<CRecorder>();
 			m_iNewSegment = m_oOriginal.GetIteratorIndex();
-			CL_SetPlayerAngles(cmd, ps->delta_angles, ps->viewangles);
 
 		}
 
@@ -40,7 +39,6 @@ public:
 		m_oOriginal.DoPlayback(cmd, oldcmd);
 
 		if (!m_oOriginal.IsPlayback()) {
-			CL_SetPlayerAngles(cmd, ps->delta_angles, ps->viewangles);
 			return false;
 		}
 

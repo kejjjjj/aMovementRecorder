@@ -59,6 +59,8 @@ private:
 #pragma pack(pop)
 
 	std::size_t m_iCmd = 0u;
+	std::int32_t m_iFirstServerTime = 0;
+	std::int32_t m_iFirstOldServerTime = 0;
 
 };
 

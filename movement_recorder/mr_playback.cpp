@@ -8,6 +8,7 @@
 #include "mr_record.hpp"
 #include <cg/cg_client.hpp>
 #include <com/com_channel.hpp>
+#include <iostream>
 
 CPlayback::CPlayback(std::vector<playback_cmd>&& _data, int g_speed, char jump_slowdownEnable)
 	: cmds(std::forward<std::vector<playback_cmd>&&>(_data)) {
@@ -24,38 +25,48 @@ CPlayback::CPlayback(const std::vector<playback_cmd>& _data, int g_speed, char j
 	m_objHeader = { .m_iSpeed = g_speed, .m_bJumpSlowdownEnable = slowdown_t(jump_slowdownEnable) };
 }
 CPlayback::~CPlayback() = default;
-void CPlayback::TryFixingTime(usercmd_s* cmd, usercmd_s* oldcmd)
+void CPlayback::TryFixingTime(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 {
-	const int realDelta = cmd->serverTime - oldcmd->serverTime;
-	const int targetDelta = cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime;
+	cmd->serverTime = m_iFirstServerTime + (cmds[m_iCmd].serverTime - cmds.front().serverTime);
+	clients->serverTime = cmd->serverTime;
+	cgs->snap->serverTime = cmd->serverTime;
 
-	if (realDelta == targetDelta)
-		return;
+	const int ft = cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime;
+	Dvar_FindMalleableVar("com_maxfps")->current.integer = 1000 / ft;
 
-	cmd->serverTime = oldcmd->serverTime + targetDelta;
 }
 
-void CPlayback::DoPlayback(usercmd_s* cmd, usercmd_s* oldcmd)
+void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 {
 	if (!IsPlayback())
 		return;
 
+	if (!m_iCmd) {
+
+		//any slowdown is going to cause issues so just don't start
+		
+		//UPDATE: sometimes this causes serious issues with lineups!
+		//if (cgs->predictedPlayerState.pm_time)
+		//	return;
+
+		m_iFirstServerTime = cmd->serverTime;
+		m_iFirstOldServerTime = oldcmd->serverTime;
+
+	}
 	auto icmd = &cmds[m_iCmd];
-	const int Delta = icmd->serverTime - icmd->oldTime;
 
-	if (Delta) {
-		int FPS = 1000 / Delta;
-		Dvar_FindMalleableVar("com_maxfps")->current.integer = FPS;
-	}
+	const auto deltas = icmd->viewangles.angle_delta(cgs->predictedPlayerState.delta_angles);
 
-	for (int i = 0; i < 3; i++) {
-		cmd->angles[i] = ANGLE2SHORT(AngleDelta(icmd->deltas[i], cgs->predictedPlayerState.delta_angles[i]));
-	}
+	(ivec3&)cmd->angles = deltas.to_short();
+	(fvec3&)clients->viewangles = deltas;
+
 
 	TryFixingTime(cmd, oldcmd);
 
 	//cmd->serverTime = StartTime + (icmd->serverTime - cmds.begin()->serverTime);
-	clients->serverTime = cmd->serverTime;
+
+
+
 
 	cmd->offHandIndex = icmd->offhand;
 	cmd->weapon = icmd->weapon;

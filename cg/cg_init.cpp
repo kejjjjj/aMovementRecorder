@@ -22,6 +22,14 @@ using namespace std::chrono_literals;
 *reinterpret_cast<type*>((DWORD)data - sizeof(FARPROC)) = value;\
 return 0;
 
+static void NVar_Setup(NVarTable* table)
+{
+    table->AddImNvar<bool, ImCheckbox>("Show Origins", true, NVar_ArithmeticToString<bool>);
+    table->AddImNvar<bool, ImCheckbox>("Status Text", true, NVar_ArithmeticToString<bool>);
+    table->AddImNvar<bool, ImCheckbox>("Segmenting", false, NVar_ArithmeticToString<bool>);
+    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, 0.f, 1.f, "%.6f");
+}
+
 #if(DEBUG_SUPPORT)
 #include "cmd/cmd.hpp"
 #include <r/gui/r_main_gui.hpp>
@@ -51,9 +59,7 @@ void CG_Init()
     NVarTables::tables[NVAR_TABLE_NAME] = std::make_unique<NVarTable>(NVAR_TABLE_NAME);
     auto table = NVarTables::Get();
 
-    table->AddImNvar<bool, ImCheckbox>("Show Origins", true, NVar_ArithmeticToString<bool>);
-    table->AddImNvar<bool, ImCheckbox>("Segmenting", true, NVar_ArithmeticToString<bool>);
-    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, 0.f, 1.f, "%.6f");
+    NVar_Setup(table);
 
     if (table->SaveFileExists())
         table->ReadNVarsFromFile();
@@ -78,9 +84,7 @@ void CG_Init()
     (*NVarTables::tables)[NVAR_TABLE_NAME] = std::make_unique<NVarTable>(NVAR_TABLE_NAME);
     const auto table = (*NVarTables::tables)[NVAR_TABLE_NAME].get();
 
-    table->AddImNvar<bool, ImCheckbox>("Show Origins", true, NVar_ArithmeticToString<bool>);
-    table->AddImNvar<bool, ImCheckbox>("Segmenting", true, NVar_ArithmeticToString<bool>);
-    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, 0.f, 1.f, "%.6f");
+    NVar_Setup(table);
 
     if (table->SaveFileExists())
         table->ReadNVarsFromFile();

@@ -31,7 +31,7 @@ public:
 
 private:
 
-	void UpdateViewangles();
+	void UpdateViewangles(usercmd_s* cmd);
 	void UpdateOrigin();
 	
 	void MoveCloser(usercmd_s* cmd, usercmd_s* oldcmd);
@@ -46,6 +46,7 @@ private:
 	fvec3 m_vecDestinationAngles;
 	fvec3 m_vecTargetAngles;
 	fvec3 m_vecOldOrigin;
+	ivec3 m_ivecTargetCmdAngles;
 	
 	float m_fYawToTarget = {};
 	float m_fLineupAccuracy = {};
@@ -57,6 +58,8 @@ private:
 	size_t m_uAccuracyTestFrames = {};
 
 	State m_eState = active;
+	State m_eAngleState = active;
+
 };
 
 class CLineupPlayback : public CLineup

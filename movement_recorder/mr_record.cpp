@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <com/com_channel.hpp>
 #include <iostream>
+#include <ranges>
 
 
 CRecorder::~CRecorder() = default;
@@ -17,14 +18,13 @@ void CRecorder::Record(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) noe
 		cmd->forwardmove = 0;
 		cmd->rightmove = 0;
 		cmd->buttons = 0;
-
-		if(IsWaiting())
-			return;
-	}
-
-	if ((cmd->forwardmove == 0 && cmd->rightmove == 0) && m_bStartFromMove && data.empty()) {
+		
 		return;
 	}
+
+	//if ((cmd->forwardmove == 0 && cmd->rightmove == 0) && m_bStartFromMove && data.empty()) {
+	//	return;
+	//}
 
 	playback_cmd rcmd;
 
@@ -37,18 +37,30 @@ void CRecorder::Record(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) noe
 	rcmd.serverTime = cmd->serverTime;
 	rcmd.velocity = ps->velocity;
 	rcmd.weapon = cmd->weapon;
-	rcmd.viewangles = ps->viewangles;
-
-	for (int i = 0; i < 3; i++) {
-
-		float delta = AngleDelta(ps->delta_angles[i], SHORT2ANGLE(cmd->angles[i]));
-		float real_delta = AngleDelta(delta, ps->delta_angles[i]);
-
-		rcmd.deltas[i] = ps->delta_angles[i] - real_delta;
-	}
+	rcmd.viewangles = CG_AnglesFromCmd(cmd);
 
 	data.push_back(std::move(rcmd));
 }
 std::vector<playback_cmd>&& CRecorder::StopRecording() noexcept {
+
+	//for ([[maybe_unused]]const auto i : std::views::iota(0u, 10u)) 
+	//	InsertDummyCmd();
+
 	return std::move(data);
+}
+
+void CRecorder::InsertDummyCmd()
+{
+	if (data.empty())
+		return;
+
+	const auto& front = data.front();
+	playback_cmd copy = front;
+
+	copy.serverTime -= 3;
+	copy.oldTime -= 3;
+	copy.forwardmove = 0;
+	copy.rightmove = 0;
+
+	data.insert(data.begin(), copy);
 }

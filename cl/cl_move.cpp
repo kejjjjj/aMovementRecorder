@@ -8,7 +8,8 @@
 #include <dvar/dvar.hpp>
 #include <com/com_channel.hpp>
 #include <cl/cl_utils.hpp>
-
+#include <cg/cg_angles.hpp>
+#include <utils/typedefs.hpp>
 
 //static void DoDebugging(usercmd_s* cmd, usercmd_s* oldcmd)
 //{
@@ -61,6 +62,14 @@ void CL_FinishMove(usercmd_s* cmd)
 	auto oldcmd = CL_GetUserCmd(clients->cmdNumber - 1);
 
 	if (ps->pm_type == PM_NORMAL) {
+
+
+		//ivec3 angles = fvec3(0, i, 0).angle_delta(cgs->predictedPlayerState.delta_angles).to_short();
+
+		//fvec3 viewangles = (angles.from_short() + ps->delta_angles).normalize180();
+
+		//(ivec3&)cmd->angles = viewangles.angle_delta(cgs->predictedPlayerState.delta_angles).to_short();
+
 
 		CStaticMovementRecorder::Instance->Update(ps, cmd, oldcmd);
 

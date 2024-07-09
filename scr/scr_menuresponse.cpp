@@ -7,6 +7,8 @@
 #include <string>
 #include <iostream>
 
+using namespace std::string_literals;
+
 void Script_ParseMenuResponse(char* text) //this will always be the same format so hardcoding everything should not cause issues
 {
 
@@ -108,6 +110,12 @@ void Script_OnMenuResponse([[maybe_unused]] int serverId, int menu, [[maybe_unus
     };
 
     try {
+
+        if (!menu_name || strlen(menu_name) <= 1) {
+            //berrytrials doesn't include the menuname
+            return response_fnc.at(response)();      
+        }
+
         auto& menu_t = menu_names.at(menu_name);
         auto& func = menu_t.at(response);
 
