@@ -40,6 +40,7 @@ void CG_CreatePermaHooks()
 
 void CG_CreateHooks()
 {
+
 	
 	hooktable::preserver<void, int>(HOOK_PREFIX("CL_Disconnect"), 0x4696B0, CL_Disconnect);
 	hooktable::preserver<void>(HOOK_PREFIX("PM_Weapon_FinishWeaponChangeASM"), 0x41A5F7, PM_Weapon_FinishWeaponChangeASM);
@@ -64,9 +65,6 @@ void CG_CreateHooks()
 		hooktable::preserver<int, msg_t*>(HOOK_PREFIX("MSG_ParseServerCommand"), COD4X::get() + 0x12D6B, COD4X::MSG_ParseServerCommand);
 	}
 
-	while (!dx || !dx->device) {
-		std::this_thread::sleep_for(100ms);
-	}
 	if (dx && dx->device)
 		hooktable::preserver<long, IDirect3DDevice9*>(HOOK_PREFIX("R_EndScene"),
 			reinterpret_cast<size_t>((*reinterpret_cast<PVOID**>(dx->device))[42]), R_EndScene);

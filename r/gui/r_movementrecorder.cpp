@@ -46,20 +46,19 @@ void CMovementRecorderWindow::Render()
 
 	ImGui::Separator();
 
+	const auto window_length = ImGui::GetWindowSize().x - ImGui::GetCursorPos().x - ImGui::GetStyle().FramePadding.x;
+
 	ImGui::BeginChild("MovementRecorderCategories",
-		ImVec2(ImGui::GetWindowSize().x - ImGui::GetCursorPos().x - ImGui::GetStyle().FramePadding.x, 0),
-		ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Border);
+		ImVec2(window_length, 0),
+		ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Border);
 		
 	if (ImGui::BeginTabBar("playbacks")) {
 
 		if (ImGui::BeginTabItem("Local")) {
 
-			CStaticMovementRecorder::Get()->Gui_RenderLocals();
+			static auto gui = CGuiMovementRecorder(*CStaticMovementRecorder::Instance);
+			gui.RenderLevelRecordings();
 
-			ImGui::EndTabItem();
-		}
-
-		if (ImGui::BeginTabItem("Online")) {
 			ImGui::EndTabItem();
 		}
 

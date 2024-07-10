@@ -18,7 +18,6 @@ public:
 	}
 
 	void Render() override;
-	//const std::string& GetIdentifier() const override { return id; }
 
 private:
 
