@@ -28,7 +28,7 @@ CLineup::CLineup(const fvec3& target, const fvec3& destination_angles, float lin
 	m_vecTargetAngles = cgs->predictedPlayerState.viewangles;
 
 	m_fTotalDistance = m_vecOldOrigin.xy().dist(target);
-	m_vecClosestDeltas = { 180.f };
+
 	//50% chance to lineup while crouched
 	m_iCmdButtons = cmdEnums::crouch * bool(std::round(random(1.f)));
 }
@@ -86,7 +86,16 @@ void CLineup::UpdateViewangles([[maybe_unused]]usercmd_s* cmd)
 
 	const fvec3& viewangles = ps->viewangles;
 
-	if (viewangles.dist(m_vecDestinationAngles) < 0.01f) {
+	const bool ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get();
+
+
+	const bool goodViewangles = viewangles.every([this, ignorePitch, i = 0](float v) mutable -> bool {
+		const auto index = i++;
+		return (ignorePitch && index != YAW) ? true : std::fabsf(v - m_vecDestinationAngles[index]) < 0.01f;
+	});
+
+
+	if (goodViewangles) {
 		m_eAngleState = finished;
 		return;
 	}
@@ -106,9 +115,13 @@ void CLineup::UpdateViewangles([[maybe_unused]]usercmd_s* cmd)
 	m_vecTargetAngles = viewangles + destination_deltas;
 	m_ivecTargetCmdAngles = m_vecTargetAngles.angle_delta(ps->delta_angles).to_short();
 
-	if (m_eState == finished)
-		(ivec3&)cmd->angles = m_ivecTargetCmdAngles;
+	if (m_eState == finished) {
 
+		if (ignorePitch)
+			cmd->angles[YAW] = m_ivecTargetCmdAngles[YAW];
+		else
+			(ivec3&)cmd->angles = m_ivecTargetCmdAngles;
+	}
 
 }
 void CLineup::UpdateOrigin()
@@ -143,7 +156,13 @@ void CLineup::MoveCloser(usercmd_s* cmd, usercmd_s* oldcmd)
 
 		if (xy_dist <= m_fLineupAccuracy && z_dist < 100) {
 			m_uAccuracyTestFrames = cmds.size();
-			CStaticMovementRecorder::PushPlaybackCopy(cmds, CG_GetSpeed(&cgs->predictedPlayerState), CG_HasJumpSlowdown());
+			CStaticMovementRecorder::PushPlayback(cmds, 
+				{
+					.g_speed = CG_GetSpeed(&cgs->predictedPlayerState), 
+					.jump_slowdownEnable = CG_HasJumpSlowdown(),
+					.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+				});
+
 			return;
 		}
 
@@ -184,7 +203,15 @@ void CLineup::CreatePlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd) 
 	pcmd.serverTime = pcmd.oldTime + (1000 / LINEUP_FPS);
 	pcmd.viewangles = (m_ivecTargetCmdAngles.from_short() + ps->delta_angles).normalize180();
 
-	CStaticMovementRecorder::PushPlaybackCopy({ pcmd }, CG_GetSpeed(&cgs->predictedPlayerState), CG_HasJumpSlowdown());
+	CStaticMovementRecorder::PushPlayback(
+		{ 
+			pcmd 
+		},
+		{
+			.g_speed = CG_GetSpeed(&cgs->predictedPlayerState),
+			.jump_slowdownEnable = CG_HasJumpSlowdown(),
+			.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+		});
 
 }
 bool CLineup::CanPathfind() const noexcept

@@ -17,7 +17,13 @@
 #include <cl/cl_utils.hpp>
 
 
-std::unique_ptr<CGuiMovementRecorder> CStaticMovementRecorder::Instance = std::make_unique<CGuiMovementRecorder>();
+std::unique_ptr<CMovementRecorder> CStaticMovementRecorder::Instance = std::make_unique<CMovementRecorder>();
+
+CMovementRecorder::CMovementRecorder()
+{
+
+}
+
 CMovementRecorder::~CMovementRecorder() = default;
 void CMovementRecorder::Update(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd)
 {
@@ -83,7 +89,7 @@ void CMovementRecorder::OnPositionLoaded()
 	}
 
 }
-CPlayback* CMovementRecorder::GetActive() {
+CPlayback* CMovementRecorder::GetActivePlayback() {
 	if (Segmenter)
 		return Segmenter->GetPlayback();
 
@@ -94,7 +100,7 @@ CPlayback* CMovementRecorder::GetActive() {
 	return PlaybackActive;
 
 }
-CPlayback* CMovementRecorder::GetActive() const {
+CPlayback* CMovementRecorder::GetActivePlayback() const {
 	if (Segmenter)
 		return Segmenter->GetPlayback();
 
@@ -103,14 +109,6 @@ CPlayback* CMovementRecorder::GetActive() const {
 
 	return PlaybackActive;
 
-}
-bool CMovementRecorder::DoingPlayback() const noexcept
-{
-	//currently attempting to segment the current playback, but the user hasn't touched any keys yet
-	if (Segmenter && !Segmenter->ResultExists())
-		return true;
-
-	return PlaybackActive;
 }
 void CMovementRecorder::SelectPlayback()
 {
@@ -119,8 +117,13 @@ void CMovementRecorder::SelectPlayback()
 	if (PendingRecording) {
 		PushPlayback(CPlayback(
 			std::vector<playback_cmd>(*PendingRecording),
-			CG_GetSpeed(&cgs->predictedPlayerState),
-			Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled), segmenting_allowed, lineup);
+			{ 
+				.g_speed = CG_GetSpeed(&cgs->predictedPlayerState),
+				.jump_slowdownEnable = Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
+				.ignorePitch = 	NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+			}), 
+
+			segmenting_allowed, lineup);
 
 		return;
 	}
@@ -145,6 +148,8 @@ void CMovementRecorder::SelectPlayback()
 			[ps = &cgs->predictedPlayerState](const CPlayback* left, const CPlayback* right) {
 				return left->GetOrigin().dist_sq(ps->origin) < right->GetOrigin().dist_sq(ps->origin);
 			});
+
+		(*closest)->IgnorePitch(NVar_FindMalleableVar<bool>("Ignore Pitch")->Get());
 
 		return PushPlayback(**closest, segmenting_allowed, lineup);
 
@@ -226,7 +231,7 @@ void CMovementRecorder::UpdatePlaybackQueue(usercmd_s* cmd, [[maybe_unused]]user
 	if (PlaybackQueue.empty())
 		return;
 
-	auto ps = &cgs->predictedPlayerState;
+	const auto ps = &cgs->predictedPlayerState;
 
 	//set a new active
 	if (!PlaybackActive) {
@@ -247,7 +252,7 @@ void CMovementRecorder::UpdatePlaybackQueue(usercmd_s* cmd, [[maybe_unused]]user
 
 
 }
-void CStaticMovementRecorder::SetPlayback()
+void CStaticMovementRecorder::SelectPlayback()
 {
 	return Instance->SelectPlayback();
 }
@@ -265,11 +270,11 @@ void CStaticMovementRecorder::ToggleRecording()
 
 	Instance->StartRecording();
 }
-void CStaticMovementRecorder::PushPlayback(std::vector<playback_cmd>&& cmds, int g_speed, bool slowdownenable) {
-	Instance->PushPlayback(CPlayback(std::move(cmds), g_speed, slowdownenable));
+void CStaticMovementRecorder::PushPlayback(std::vector<playback_cmd>&& cmds, const PlaybackInitializer& init) {
+	Instance->PushPlayback(CPlayback(std::move(cmds), init));
 }
-void CStaticMovementRecorder::PushPlaybackCopy(const std::vector<playback_cmd>& cmds, int g_speed, bool slowdownenable) {
-	Instance->PushPlayback(CPlayback(cmds, g_speed, slowdownenable), no_segmenting, no_lineup);
+void CStaticMovementRecorder::PushPlayback(const std::vector<playback_cmd>& cmds, const PlaybackInitializer& init) {
+	Instance->PushPlayback(CPlayback(cmds, init), no_segmenting, no_lineup);
 }
 
 void CStaticMovementRecorder::OnDisconnect() {
@@ -293,29 +298,10 @@ void CStaticMovementRecorder::Save() {
 
 	const char* filename = *(cmd_args->argv[cmd_args->nesting] + 1);
 
-	if (fs::valid_file_name(filename)) {
-		const CPlayback pb(*Instance->PendingRecording);
-		const std::string mapname = Dvar_FindMalleableVar("mapname")->current.string;
-		const auto writer = std::make_unique<CPlaybackIOWriter>(&pb, mapname + "\\" + filename);
+	CMovementRecorderIO io(*Instance);
 
-		if (writer->Write()) {
-			Com_Printf("^2saved\n");
-			Instance->PendingRecording.reset();
-
-			//now refresh everything in case it overwrote an existing file
-			Instance->OnDisconnect();
-			m_bPlaybacksLoaded = false;
-
-			return;
-		}
-
-		Com_Printf("^1failed to save\n");
-
-		return;
-	}
-		
-	Com_Printf("^1invalid name\n");
-	
+	if (io.SaveToDisk(filename, *Instance->PendingRecording))
+		Instance->PendingRecording.reset();
 
 }
 
@@ -344,32 +330,12 @@ void CStaticMovementRecorder::TeleportTo() {
 
 bool CStaticMovementRecorder::m_bPlaybacksLoaded = false;
 
-void CStaticMovementRecorder::Load(const std::string& filename) {
-
-	if (CL_ConnectionState() != CA_ACTIVE)
-		return;
-
-	const std::string mapname = Dvar_FindMalleableVar("mapname")->current.string;
-	const auto reader = std::make_unique<CPlaybackIOReader>(mapname + "\\" + filename);
-
-	if (reader->Read()) {
-		Instance->LevelPlaybacks[filename] = std::move(reader->m_objResult);
-		return;
-	}
-
-	Com_Printf("^1failed to load '%s'\n", filename.c_str());
-
-}
-
 void CStaticMovementRecorder::Update()
 {
 	if (CL_ConnectionState() == CA_ACTIVE && !m_bPlaybacksLoaded) {
 		
-		const std::string mapname = Dvar_FindMalleableVar("mapname")->current.string;
-
-		auto directory = fs::files_in_directory(AGENT_DIRECTORY() + "\\Playbacks\\" + mapname);
-		std::ranges::for_each(directory, [](const std::string& s) { 
-			Load(fs::get_file_name(s)); });
+		CMovementRecorderIO io(*Instance);
+		io.RefreshAllLevelPlaybacks();
 		m_bPlaybacksLoaded = true;
 	}
 
@@ -379,9 +345,8 @@ void CStaticMovementRecorder::Clear() {
 	Instance->PendingRecording.reset();
 };
 
-bool CStaticMovementRecorder::DoingPlayback()
+bool CStaticMovementRecorder::GetActivePlayback() noexcept
 {
-	return Instance->DoingPlayback();
+	return Instance->GetActivePlayback();
 }
-CGuiMovementRecorder* CStaticMovementRecorder::Get() { return Instance.get(); }
 

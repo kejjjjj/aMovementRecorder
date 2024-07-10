@@ -22,9 +22,10 @@ void CRecorder::Record(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) noe
 		return;
 	}
 
-	//if ((cmd->forwardmove == 0 && cmd->rightmove == 0) && m_bStartFromMove && data.empty()) {
-	//	return;
-	//}
+	const bool hasVelocity = fvec3(ps->velocity).mag_sq() != 0.000000f;
+	if ((hasVelocity || cmd->forwardmove == 0 && cmd->rightmove == 0) && m_bStartFromMove && data.empty()) {
+		return;
+	}
 
 	playback_cmd rcmd;
 
@@ -42,25 +43,5 @@ void CRecorder::Record(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) noe
 	data.push_back(std::move(rcmd));
 }
 std::vector<playback_cmd>&& CRecorder::StopRecording() noexcept {
-
-	//for ([[maybe_unused]]const auto i : std::views::iota(0u, 10u)) 
-	//	InsertDummyCmd();
-
 	return std::move(data);
-}
-
-void CRecorder::InsertDummyCmd()
-{
-	if (data.empty())
-		return;
-
-	const auto& front = data.front();
-	playback_cmd copy = front;
-
-	copy.serverTime -= 3;
-	copy.oldTime -= 3;
-	copy.forwardmove = 0;
-	copy.rightmove = 0;
-
-	data.insert(data.begin(), copy);
 }

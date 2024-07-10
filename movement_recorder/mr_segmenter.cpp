@@ -11,6 +11,7 @@
 #include <bg/bg_pmove_simulation.hpp>
 #include <ranges>
 #include <algorithm>
+#include <net/nvar_table.hpp>
 
 
 class CPlaybackSegmenterImpl
@@ -70,7 +71,12 @@ public:
 
 		newdata.insert(newdata.end(), result.begin(), result.end());
 
-		return std::optional<CPlayback>(CPlayback(newdata, CG_GetSpeed(&cgs->predictedPlayerState), CG_HasJumpSlowdown()));
+		return std::optional<CPlayback>(CPlayback(newdata, 
+			{
+				.g_speed = CG_GetSpeed(&cgs->predictedPlayerState),
+				.jump_slowdownEnable = CG_HasJumpSlowdown(),
+				.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+			}));
 	}
 	inline bool ResultExists() const noexcept {
 		return m_oRecorder.get();

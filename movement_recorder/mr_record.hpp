@@ -39,9 +39,6 @@ public:
 	std::vector<playback_cmd>&& StopRecording() noexcept;
 
 private:
-
-	void InsertDummyCmd();
-
 	std::vector<playback_cmd> data;
 	bool m_bStartFromMove = {};
 

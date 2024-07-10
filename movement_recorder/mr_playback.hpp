@@ -8,17 +8,18 @@
 struct playback_cmd;
 struct playerState_s;
 struct usercmd_s;
-
+struct PlaybackInitializer;
 template<typename T>
 struct vec3;
 using fvec3 = vec3<float>;
 
 
+
 class CPlayback
 {
 public:
-	CPlayback(std::vector<playback_cmd>&& data, int g_speed = 190, char jump_slowdownEnable = false);
-	explicit CPlayback(const std::vector<playback_cmd>& _data, int g_speed = 190, char jump_slowdownEnable = false);
+	CPlayback(std::vector<playback_cmd>&& data, const PlaybackInitializer& init);
+	explicit CPlayback(const std::vector<playback_cmd>& _data, const PlaybackInitializer& init);
 	~CPlayback();
 	void DoPlayback(usercmd_s* cmd, usercmd_s* oldcmd);
 	bool IsPlayback() const noexcept;
@@ -32,6 +33,10 @@ public:
 	fvec3 GetOrigin() const noexcept;
 	fvec3 GetAngles() const noexcept;
 
+	__forceinline void IgnorePitch(bool ignore = true) const noexcept {
+		m_bIgnorePitch = ignore;
+	}
+
 	operator std::vector<playback_cmd>();
 
 	friend class CPlaybackIOWriter;
@@ -41,6 +46,7 @@ public:
 	std::vector<playback_cmd> cmds;
 
 private:
+	void EraseDeadFrames();
 	void TryFixingTime(usercmd_s* cmd, usercmd_s* oldcmd);
 
 	enum slowdown_t : std::int8_t
@@ -62,6 +68,8 @@ private:
 	std::int32_t m_iFirstServerTime = 0;
 	std::int32_t m_iFirstOldServerTime = 0;
 
+	mutable bool m_bIgnorePitch = false;
+
 };
 
 class CPlaybackGui
@@ -70,7 +78,7 @@ class CPlaybackGui
 public:
 	CPlaybackGui(CPlayback& owner, const std::string name);
 	~CPlaybackGui();
-	void Render();
+	bool Render();
 
 private:
 	size_t m_uNumChanges = {};

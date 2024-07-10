@@ -13,8 +13,10 @@
 #include <net/im_defaults.hpp>
 #include <thread>
 #include <cod4x/cod4x.hpp>
+#include <sys/sys_thread.hpp>
 
-
+#include "cg/cg_local.hpp"
+#include "cg/cg_offsets.hpp"
 
 using namespace std::chrono_literals;
 
@@ -28,20 +30,27 @@ static void NVar_Setup(NVarTable* table)
     table->AddImNvar<bool, ImCheckbox>("Status Text", true, NVar_ArithmeticToString<bool>);
     table->AddImNvar<bool, ImCheckbox>("Segmenting", false, NVar_ArithmeticToString<bool>);
     table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, 0.f, 1.f, "%.6f");
+
+    table->AddImNvar<bool, ImCheckbox>("Ignore Pitch", false, NVar_ArithmeticToString<bool>);
 }
 
 #if(DEBUG_SUPPORT)
 #include "cmd/cmd.hpp"
 #include <r/gui/r_main_gui.hpp>
 
-#include "cg/cg_local.hpp"
-#include "cg/cg_offsets.hpp"
+#include <iostream>
 
 void CG_Init()
 {
-    COD4X::initialize();
-    CG_CreatePermaHooks();
+    while (!dx || !dx->device) {
+        std::this_thread::sleep_for(100ms);
+    }
 
+
+    Sys_SuspendAllThreads();
+    std::this_thread::sleep_for(300ms);
+
+#pragma warning(suppress : 6011)
     if (!CStaticMainGui::Owner->Initialized()) {
         CStaticMainGui::Owner->Init(dx->device, FindWindow(NULL, COD4X::get() ? "Call of Duty 4 X" : "Call of Duty 4"));
     }
@@ -49,7 +58,7 @@ void CG_Init()
     Cmd_AddCommand("gui", CStaticMainGui::Toggle);
 
     Cmd_AddCommand("mr_record", CStaticMovementRecorder::ToggleRecording);
-    Cmd_AddCommand("mr_playback", CStaticMovementRecorder::SetPlayback);
+    Cmd_AddCommand("mr_playback", CStaticMovementRecorder::SelectPlayback);
     Cmd_AddCommand("mr_save", CStaticMovementRecorder::Save);
     Cmd_AddCommand("mr_teleportTo", CStaticMovementRecorder::TeleportTo);
     Cmd_AddCommand("mr_clear", CStaticMovementRecorder::Clear);
@@ -66,16 +75,27 @@ void CG_Init()
 
     table->WriteNVarsToFile();
 
+    COD4X::initialize();
+    CG_CreatePermaHooks();
+
+    Sys_ResumeAllThreads();
 }
 
 #else
 #include <cl/cl_move.hpp>
-#include <iostream>
 void CG_Init()
 {
+    while (!dx || !dx->device) {
+        std::this_thread::sleep_for(100ms);
+    }
+
     while (!CMain::Shared::AddFunction || !CMain::Shared::GetFunction) {
         std::this_thread::sleep_for(200ms);
     }
+
+    Sys_SuspendAllThreads();
+    std::this_thread::sleep_for(300ms);
+
     COD4X::initialize();
 
     //CMain::Shared::GetFunctionOrExit("AddEndSceneRenderer")->As<void, std::function<void(IDirect3DDevice9*)>&&>()->Call(R_EndScene);
@@ -102,17 +122,25 @@ void CG_Init()
     //CMain::Shared::GetFunctionOrExit("Queue_R_EndScene")->As<void, endscene_t&&>()->Call(R_EndScene);
 
     Cmd_AddCommand("mr_record", CStaticMovementRecorder::ToggleRecording);
-    Cmd_AddCommand("mr_playback", CStaticMovementRecorder::SetPlayback);
+    Cmd_AddCommand("mr_playback", CStaticMovementRecorder::SelectPlayback);
     Cmd_AddCommand("mr_save", CStaticMovementRecorder::Save);
     Cmd_AddCommand("mr_teleportTo", CStaticMovementRecorder::TeleportTo);
     Cmd_AddCommand("mr_clear", CStaticMovementRecorder::Clear);
 
 #pragma warning(suppress : 6011) //false positive
+
+    //a bit of an awkward implementation, but it resolves the overloaded function ambiguity
     CMain::Shared::AddFunction(
-        std::make_unique<CSharedFunction<void, std::vector<playback_cmd>&&, int, bool>>("AddPlayback", &CStaticMovementRecorder::PushPlayback));
-    CMain::Shared::AddFunction(std::make_unique<CSharedFunction<bool>>("PlaybackActive", CStaticMovementRecorder::DoingPlayback));
+        std::make_unique<CSharedFunction<void, std::vector<playback_cmd>&&, const PlaybackInitializer&>>
+        ("AddPlayback", [&](std::vector<playback_cmd>&& cmd, const PlaybackInitializer& i) { CStaticMovementRecorder::PushPlayback(cmd, i); }));
+
+
+    CMain::Shared::AddFunction(std::make_unique<CSharedFunction<bool>>("PlaybackActive", CStaticMovementRecorder::GetActivePlayback));
 
     CG_CreatePermaHooks();
+
+    Sys_ResumeAllThreads();
+
 
 }
 #endif

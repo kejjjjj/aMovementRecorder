@@ -1,35 +1,50 @@
-#include <bg/bg_pmove_simulation.hpp>
 #include "cg/cg_angles.hpp"
-#include "mr_playback.hpp"
-#include <dvar/dvar.hpp>
-#include <ranges>
 #include "cg/cg_local.hpp"
 #include "cg/cg_offsets.hpp"
+#include "mr_playback.hpp"
 #include "mr_record.hpp"
+#include "net/nvar_table.hpp"
+#include <bg/bg_pmove_simulation.hpp>
 #include <cg/cg_client.hpp>
 #include <com/com_channel.hpp>
+#include <dvar/dvar.hpp>
+#include <ranges>
 #include <iostream>
 
-CPlayback::CPlayback(std::vector<playback_cmd>&& _data, int g_speed, char jump_slowdownEnable)
+CPlayback::CPlayback(std::vector<playback_cmd>&& _data, const PlaybackInitializer& init)
 	: cmds(std::forward<std::vector<playback_cmd>&&>(_data)) {
 	m_iCmd = 0u;
 
 	
 
-	m_objHeader = { .m_iSpeed = g_speed, .m_bJumpSlowdownEnable = slowdown_t(jump_slowdownEnable) };
+	m_objHeader = { 
+		.m_iSpeed = init.g_speed, 
+		.m_bJumpSlowdownEnable = slowdown_t(init.jump_slowdownEnable)
+	};
+
+	m_bIgnorePitch = init.ignorePitch;
+
+	EraseDeadFrames();
+
 }
-CPlayback::CPlayback(const std::vector<playback_cmd>& _data, int g_speed, char jump_slowdownEnable)
+CPlayback::CPlayback(const std::vector<playback_cmd>& _data, const PlaybackInitializer& init)
 	: cmds(_data) {
 	m_iCmd = 0u;
 
-	m_objHeader = { .m_iSpeed = g_speed, .m_bJumpSlowdownEnable = slowdown_t(jump_slowdownEnable) };
+	m_objHeader = {
+		.m_iSpeed = init.g_speed,
+		.m_bJumpSlowdownEnable = slowdown_t(init.jump_slowdownEnable)
+	};
+
+	m_bIgnorePitch = init.ignorePitch;
+
+	EraseDeadFrames();
 }
 CPlayback::~CPlayback() = default;
 void CPlayback::TryFixingTime(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 {
 	cmd->serverTime = m_iFirstServerTime + (cmds[m_iCmd].serverTime - cmds.front().serverTime);
 	clients->serverTime = cmd->serverTime;
-	cgs->snap->serverTime = cmd->serverTime;
 
 	const int ft = cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime;
 	Dvar_FindMalleableVar("com_maxfps")->current.integer = 1000 / ft;
@@ -56,17 +71,17 @@ void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 	auto icmd = &cmds[m_iCmd];
 
 	const auto deltas = icmd->viewangles.angle_delta(cgs->predictedPlayerState.delta_angles);
-
-	(ivec3&)cmd->angles = deltas.to_short();
-	(fvec3&)clients->viewangles = deltas;
-
+	
+	if (m_bIgnorePitch) {
+		cmd->angles[YAW] = deltas.to_short().y;
+		clients->viewangles[YAW] = deltas.y;
+	}
+	else {
+		(ivec3&)cmd->angles = deltas.to_short();
+		(fvec3&)clients->viewangles = deltas;
+	}
 
 	TryFixingTime(cmd, oldcmd);
-
-	//cmd->serverTime = StartTime + (icmd->serverTime - cmds.begin()->serverTime);
-
-
-
 
 	cmd->offHandIndex = icmd->offhand;
 	cmd->weapon = icmd->weapon;
@@ -104,6 +119,18 @@ bool CPlayback::IsCompatibleWithState(const playerState_s* ps) const noexcept
 fvec3 CPlayback::GetOrigin() const noexcept { return cmds.front().origin; }
 fvec3 CPlayback::GetAngles() const noexcept { return cmds.front().viewangles; }
 CPlayback::operator std::vector<playback_cmd>() { return cmds; }
+
+void CPlayback::EraseDeadFrames()
+{
+	const auto it = std::find_if(cmds.begin(), cmds.end(), [](const playback_cmd& cmd){
+		return cmd.forwardmove != 0 || cmd.rightmove != 0;
+	});
+
+	if (it == cmds.begin() || it == cmds.end())
+		return;
+
+	cmds.erase(cmds.begin(), it - 1);
+}
 
 bool CPlaybackIOWriter::Write() const
 {
@@ -160,6 +187,12 @@ bool CPlaybackIOReader::Read()
 	if (cmds.empty())
 		return false;
 
-	m_objResult = std::make_unique<CPlayback>(cmds, header.m_iSpeed, header.m_bJumpSlowdownEnable);
+	m_objResult = std::make_unique<CPlayback>(cmds, 
+		PlaybackInitializer
+		{
+			.g_speed = header.m_iSpeed,
+			.jump_slowdownEnable = header.m_bJumpSlowdownEnable,
+			.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get() 
+		});
 	return true;
 }

@@ -17,8 +17,11 @@ void CG_DrawActive()
 		return;
 #endif
 
-	CStaticMovementRecorder::Instance->CG_Render();
-	
+	CStaticMovementRecorder::Update();
+
+	auto renderer = CRMovementRecorder(*CStaticMovementRecorder::Instance);
+	renderer.CG_Render();
+
 
 #if(DEBUG_SUPPORT)
 	return hooktable::find<void>(HOOK_PREFIX(__func__))->call();
