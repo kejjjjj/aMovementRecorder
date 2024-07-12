@@ -25,7 +25,7 @@ CLineup::CLineup(const fvec3& target, const fvec3& destination_angles, float lin
 {
 
 	m_vecOldOrigin = cgs->predictedPlayerState.origin;
-	m_vecTargetAngles = cgs->predictedPlayerState.viewangles;
+	m_vecTargetAngles = CG_GetClientAngles();
 
 	m_fTotalDistance = m_vecOldOrigin.xy().dist(target);
 
@@ -84,7 +84,7 @@ void CLineup::UpdateViewangles([[maybe_unused]]usercmd_s* cmd)
 {
 	auto ps = &cgs->predictedPlayerState;
 
-	const fvec3& viewangles = ps->viewangles;
+	const fvec3 viewangles = CG_GetClientAngles();
 
 	const bool ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get();
 
@@ -137,7 +137,7 @@ void CLineup::MoveCloser(usercmd_s* cmd, usercmd_s* oldcmd)
 		return;
 
 	auto ps = &cgs->predictedPlayerState;
-	const fvec3 viewangles = ps->viewangles;
+	const fvec3 viewangles = CG_GetClientAngles();
 	const fvec3& origin = (fvec3&)ps->origin;
 
 
@@ -201,7 +201,9 @@ void CLineup::CreatePlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd) 
 
 	pcmd.oldTime = cmd->serverTime;
 	pcmd.serverTime = pcmd.oldTime + (1000 / LINEUP_FPS);
-	pcmd.viewangles = (m_ivecTargetCmdAngles.from_short() + ps->delta_angles).normalize180();
+	pcmd.viewangles = m_vecTargetAngles;
+
+
 
 	CStaticMovementRecorder::PushPlayback(
 		{ 

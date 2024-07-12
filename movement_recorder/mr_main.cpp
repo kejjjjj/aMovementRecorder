@@ -15,7 +15,7 @@
 #include <Windows.h>
 #include "bg/bg_pmove_simulation.hpp"
 #include <cl/cl_utils.hpp>
-
+#include "mr_tests.hpp"
 
 std::unique_ptr<CMovementRecorder> CStaticMovementRecorder::Instance = std::make_unique<CMovementRecorder>();
 
@@ -90,7 +90,9 @@ void CMovementRecorder::OnPositionLoaded()
 
 }
 CPlayback* CMovementRecorder::GetActivePlayback() {
-	if (Segmenter)
+
+	
+	if (Segmenter && !Segmenter->ResultExists())
 		return Segmenter->GetPlayback();
 
 
@@ -123,7 +125,7 @@ void CMovementRecorder::SelectPlayback()
 				.ignorePitch = 	NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
 			}), 
 
-			segmenting_allowed, lineup);
+			segmenting_allowed, no_lineup);
 
 		return;
 	}
@@ -350,3 +352,38 @@ bool CStaticMovementRecorder::GetActivePlayback() noexcept
 	return Instance->GetActivePlayback();
 }
 
+void CStaticMovementRecorder::Simulation()
+{
+	auto ps = &cgs->predictedPlayerState;
+
+	if (ps->pm_type != PM_NORMAL || !Instance->PendingRecording)
+		return;
+
+	const CPlayback playback(*Instance->PendingRecording,
+		{
+			.g_speed = CG_GetSpeed(&cgs->predictedPlayerState),
+			.jump_slowdownEnable = Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
+			.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get()
+		});
+
+	const auto origin = Instance->PendingRecording->front().origin;
+	const auto angles = Instance->PendingRecording->front().viewangles;
+
+	CPlaybackSimulation sim(playback);
+
+	sim.Simulate(origin, angles);
+	const auto results = sim.GetAnalysis();
+
+	const auto pm = &results->pm;
+
+	float dist = Instance->PendingRecording->back().origin.dist(pm->ps->origin);
+
+	(fvec3&)ps_loc->origin = pm->ps->origin;
+	(fvec3&)ps_loc->viewangles = pm->ps->viewangles;
+
+
+
+	Com_Printf("distance: ^1%.6f", dist);
+
+
+}

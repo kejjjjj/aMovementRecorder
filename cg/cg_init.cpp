@@ -50,8 +50,8 @@ void CG_Init()
     Sys_SuspendAllThreads();
     std::this_thread::sleep_for(300ms);
 
-#pragma warning(suppress : 6011)
     if (!CStaticMainGui::Owner->Initialized()) {
+#pragma warning(suppress : 6011)
         CStaticMainGui::Owner->Init(dx->device, FindWindow(NULL, COD4X::get() ? "Call of Duty 4 X" : "Call of Duty 4"));
     }
 
@@ -62,6 +62,7 @@ void CG_Init()
     Cmd_AddCommand("mr_save", CStaticMovementRecorder::Save);
     Cmd_AddCommand("mr_teleportTo", CStaticMovementRecorder::TeleportTo);
     Cmd_AddCommand("mr_clear", CStaticMovementRecorder::Clear);
+    Cmd_AddCommand("mr_simulation", CStaticMovementRecorder::Simulation);
 
     CStaticMainGui::AddItem(std::make_unique<CMovementRecorderWindow>(NVAR_TABLE_NAME));
 

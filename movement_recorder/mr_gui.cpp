@@ -5,13 +5,15 @@
 #include "dvar/dvar.hpp"
 #include "bg/bg_pmove_simulation.hpp"
 #include <utils/resolution.hpp>
+#include <cl/cl_utils.hpp>
+#include <cg/cg_local.hpp>
 
 CPlaybackGui::CPlaybackGui(CPlayback& owner, const std::string name) : m_refOwner(owner), m_sName(name) {
 	m_iCurrentSlowdown = static_cast<int>(m_refOwner.m_objHeader.m_bJumpSlowdownEnable);
 }
 CPlaybackGui::~CPlaybackGui() = default;
 
-CGuiMovementRecorder::CGuiMovementRecorder(CMovementRecorder& recorder)
+CGuiMovementRecorder::CGuiMovementRecorder(CMovementRecorder* recorder)
 	: m_oRefMovementRecorder(recorder) {}
 CGuiMovementRecorder::~CGuiMovementRecorder() = default;
 
@@ -59,18 +61,22 @@ bool CPlaybackGui::Render()
 
 void CGuiMovementRecorder::RenderLevelRecordings()
 {
+	if (CL_ConnectionState() != CA_ACTIVE)
+		return;
 
 	const auto window_length = ImGui::GetWindowSize().x - ImGui::GetCursorPos().x - ImGui::GetStyle().FramePadding.x;
 	ImGui::BeginChild("LevelPlaybacks", { window_length, static_cast<float>(adjust_from_480(480 / 4)) });
 
-	const auto& movementRecorder = m_oRefMovementRecorder;
-	size_t n = 0u;
-	for (const auto& [name, playback] : movementRecorder.LevelPlaybacks) {
+	const auto movementRecorder = m_oRefMovementRecorder;
+	for (size_t n = 0u; const auto & [name, playback] : movementRecorder->LevelPlaybacks) {
+
+		if (!playback)
+			continue;
 
 		ImGui::SetNextItemWidth(100);
 		if (ImGui::Selectable(name.c_str(), n == m_uSelectedIndex)) {
 			m_uSelectedIndex = n;
-			m_pItem = std::make_unique<CPlaybackGui>(*playback, name);
+			m_pItem = std::make_shared<CPlaybackGui>(*playback, name);
 		}
 
 		n++;

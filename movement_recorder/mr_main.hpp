@@ -119,20 +119,19 @@ private:
 
 class CGuiMovementRecorder
 {
-	NONCOPYABLE(CGuiMovementRecorder);
-
+	friend class CMovementRecorderWindow;
 public:
 
-	CGuiMovementRecorder(CMovementRecorder& recorder);
+	CGuiMovementRecorder(CMovementRecorder* recorder);
 	~CGuiMovementRecorder();
 
 	void RenderLevelRecordings();
 
 private:
 
-	CMovementRecorder& m_oRefMovementRecorder;
+	CMovementRecorder* m_oRefMovementRecorder = 0;
 	size_t m_uSelectedIndex = {};
-	std::unique_ptr<CPlaybackGui> m_pItem;
+	std::shared_ptr<CPlaybackGui> m_pItem;
 };
 
 class CMovementRecorderIO
@@ -173,6 +172,8 @@ public:
 	static void Save();
 	static void TeleportTo();
 	static void Clear();
+	static void Simulation();
+
 
 	//automatically load all recordings for the level
 	static void Update();

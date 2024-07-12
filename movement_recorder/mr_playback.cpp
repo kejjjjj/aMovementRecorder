@@ -41,20 +41,33 @@ CPlayback::CPlayback(const std::vector<playback_cmd>& _data, const PlaybackIniti
 	EraseDeadFrames();
 }
 CPlayback::~CPlayback() = default;
-void CPlayback::TryFixingTime(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
+void CPlayback::TryFixingTime([[maybe_unused]] usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 {
 	cmd->serverTime = m_iFirstServerTime + (cmds[m_iCmd].serverTime - cmds.front().serverTime);
 	clients->serverTime = cmd->serverTime;
 
 	const int ft = cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime;
+
+	//Com_Printf("^1%i\n", 1000 / ft);
 	Dvar_FindMalleableVar("com_maxfps")->current.integer = 1000 / ft;
 
 }
 
+float fuckMyAngle(float angle, float delta, int offset = 0) {
+	float clientCmdAng = angle - delta;
+	auto netAng = ANGLE2SHORT(clientCmdAng);
+	return AngleNormalize180(SHORT2ANGLE(netAng + offset) + delta);
+}
+float GetPreviousRepresentableValue(float val)
+{
+	return std::nextafter(val, -std::numeric_limits<float>::infinity());
+
+}
 void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 {
 	if (!IsPlayback())
 		return;
+
 
 	if (!m_iCmd) {
 
@@ -68,18 +81,21 @@ void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 		m_iFirstOldServerTime = oldcmd->serverTime;
 
 	}
+
+	auto ps = &cgs->predictedPlayerState;
+
 	auto icmd = &cmds[m_iCmd];
 
-	const auto deltas = icmd->viewangles.angle_delta(cgs->predictedPlayerState.delta_angles);
-	
 	if (m_bIgnorePitch) {
-		cmd->angles[YAW] = deltas.to_short().y;
-		clients->viewangles[YAW] = deltas.y;
+
+		const auto i_yaw_deltas = ANGLE2SHORT(ps->delta_angles[YAW]);
+		const auto iexpectation = short(icmd->cmd_angles.y + ANGLE2SHORT(icmd->delta_angles.y));
+
+		const auto netAng = iexpectation - i_yaw_deltas;
+		cmd->angles[YAW] = netAng;
+		clients->viewangles[YAW] = SHORT2ANGLE(netAng);
 	}
-	else {
-		(ivec3&)cmd->angles = deltas.to_short();
-		(fvec3&)clients->viewangles = deltas;
-	}
+
 
 	TryFixingTime(cmd, oldcmd);
 

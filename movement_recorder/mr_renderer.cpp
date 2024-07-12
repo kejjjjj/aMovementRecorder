@@ -8,7 +8,24 @@
 #include <cg/cg_local.hpp>
 #include <cg/cg_offsets.hpp>
 #include <bg/bg_pmove_simulation.hpp>
+#include <cg/cg_angles.hpp>
+#include <windows.h>
+#include <cl/cl_utils.hpp>
+#include "cl/cl_move.hpp"
 
+#define RGBA(r,g,b,a) vec4_t{r,g,b,a}
+
+constexpr float x_pos = 320.f;
+constexpr float y_pos = 400.f;
+constexpr char font[] = "fonts/objectivefont";
+constexpr float font_scale = 0.25f;
+
+static void CG_RenderStatusText(const char* string, const vec4_t color, const vec4_t glow_col = 0, float y_offs = 0)
+{
+	const float x = R_GetTextCentered(string, font, x_pos, font_scale);
+	R_AddCmdDrawTextWithEffects((char*)string, font, x, y_pos + y_offs, font_scale, font_scale, 0.f, color, 3, glow_col, nullptr, nullptr, 0, 0, 0, 0);
+
+}
 void CRMovementRecorder::CG_Render() const
 {
 	if (NVar_FindMalleableVar<bool>("Show Origins")->Get())
@@ -20,6 +37,10 @@ void CRMovementRecorder::CG_Render() const
 
 	//this is useful to have
 	CG_RenderStatus();
+
+	//char buff[12];
+	//sprintf_s(buff, "%.6f", (cgs->predictedPlayerState.delta_angles[YAW]));
+	//CG_RenderStatusText(buff, RGBA(1, 1, 1, 1), 0, -30.f);
 
 }
 
@@ -51,19 +72,6 @@ void CRMovementRecorder::CG_RenderOrigins() const
 
 }
 
-#define RGBA(r,g,b,a) vec4_t{r,g,b,a}
-
-constexpr float x_pos = 320.f;
-constexpr float y_pos = 400.f;
-constexpr char font[] = "fonts/objectivefont";
-constexpr float font_scale = 0.25f;
-
-static void CG_RenderStatusText(const char* string, const vec4_t color, const vec4_t glow_col = 0)
-{
-	const float x = R_GetTextCentered(string, font, x_pos, font_scale);
-	R_AddCmdDrawTextWithEffects((char*)string, font, x, y_pos, font_scale, font_scale, 0.f, color, 3, glow_col, nullptr, nullptr, 0, 0, 0, 0);
-
-}
 
 void CRMovementRecorder::CG_RenderPrecision() const
 {
@@ -86,7 +94,6 @@ void CRMovementRecorder::CG_RenderPrecision() const
 	char buff[64];
 	sprintf_s(buff, "Precision: %.6f\n", dist);
 	CG_RenderStatusText(buff, RGBA(1,1,1,1), RGBA(1,0,0,1));
-
 }
 
 void CRMovementRecorder::CG_RenderStatus() const

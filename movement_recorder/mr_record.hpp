@@ -37,7 +37,7 @@ public:
 	inline bool IsWaiting() const noexcept { return m_iStartTimer > 0; }
 
 	std::vector<playback_cmd>&& StopRecording() noexcept;
-
+	playback_cmd* GetCurrentCmd();
 private:
 	std::vector<playback_cmd> data;
 	bool m_bStartFromMove = {};

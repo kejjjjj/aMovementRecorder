@@ -56,8 +56,14 @@ void CMovementRecorderWindow::Render()
 
 		if (ImGui::BeginTabItem("Local")) {
 
-			static auto gui = CGuiMovementRecorder(*CStaticMovementRecorder::Instance);
-			gui.RenderLevelRecordings();
+			if (CStaticMovementRecorder::Instance.get()) {
+				static auto gui = CGuiMovementRecorder(CStaticMovementRecorder::Instance.get());
+
+				if(!gui.m_oRefMovementRecorder)
+					gui = CGuiMovementRecorder(CStaticMovementRecorder::Instance.get());
+
+				gui.RenderLevelRecordings();
+			}
 
 			ImGui::EndTabItem();
 		}
@@ -66,7 +72,7 @@ void CMovementRecorderWindow::Render()
 	}
 
 
-	//ImGui::EndChild();
+	ImGui::EndChild();
 
 
 }

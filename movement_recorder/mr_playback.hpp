@@ -13,8 +13,6 @@ template<typename T>
 struct vec3;
 using fvec3 = vec3<float>;
 
-
-
 class CPlayback
 {
 public:
