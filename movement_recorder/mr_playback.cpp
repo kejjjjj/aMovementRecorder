@@ -10,6 +10,7 @@
 #include <dvar/dvar.hpp>
 #include <ranges>
 #include <iostream>
+#include <sv/sv_client.hpp>
 
 CPlayback::CPlayback(std::vector<playback_cmd>&& _data, const PlaybackInitializer& init)
 	: cmds(std::forward<std::vector<playback_cmd>&&>(_data)) {
@@ -53,16 +54,6 @@ void CPlayback::TryFixingTime([[maybe_unused]] usercmd_s* cmd, [[maybe_unused]]u
 
 }
 
-float fuckMyAngle(float angle, float delta, int offset = 0) {
-	float clientCmdAng = angle - delta;
-	auto netAng = ANGLE2SHORT(clientCmdAng);
-	return AngleNormalize180(SHORT2ANGLE(netAng + offset) + delta);
-}
-float GetPreviousRepresentableValue(float val)
-{
-	return std::nextafter(val, -std::numeric_limits<float>::infinity());
-
-}
 void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 {
 	if (!IsPlayback())
@@ -83,17 +74,20 @@ void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 	}
 
 	auto ps = &cgs->predictedPlayerState;
-
 	auto icmd = &cmds[m_iCmd];
 
-	if (m_bIgnorePitch) {
+	for (auto i = 0; i < 3; i++) {
 
-		const auto i_yaw_deltas = ANGLE2SHORT(ps->delta_angles[YAW]);
-		const auto iexpectation = short(icmd->cmd_angles.y + ANGLE2SHORT(icmd->delta_angles.y));
+		if (m_bIgnorePitch && i == PITCH)
+			continue;
 
-		const auto netAng = iexpectation - i_yaw_deltas;
-		cmd->angles[YAW] = netAng;
-		clients->viewangles[YAW] = SHORT2ANGLE(netAng);
+		const float angle_deltas = ps->delta_angles[i] + 360;
+		const auto i_angle_deltas = ANGLE2SHORT(angle_deltas);
+		const auto iexpectation = short(icmd->cmd_angles[i] + ANGLE2SHORT(icmd->delta_angles[i]));
+
+		const auto netAng = iexpectation - i_angle_deltas;
+		cmd->angles[i] = netAng;
+		clients->viewangles[i] = SHORT2ANGLE(netAng);
 	}
 
 

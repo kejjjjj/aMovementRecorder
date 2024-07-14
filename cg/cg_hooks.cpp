@@ -17,6 +17,9 @@
 
 #include "cg/cg_local.hpp"
 #include "cg/cg_offsets.hpp"
+
+#include "r/backend/rb_endscene.hpp"
+
 #include <thread>
 
 #include <chrono>
@@ -24,6 +27,7 @@ using namespace std::chrono_literals;
 
 #if(DEBUG_SUPPORT)
 #include <r/gui/r_gui.hpp>
+#include "sv/sv_client.hpp"
 #endif
 
 static void CG_CreateHooks();
@@ -48,8 +52,6 @@ void CG_CreateHooks()
 	hooktable::preserver<void>(HOOK_PREFIX("Script_ScriptMenuResponse"), 0x54DE59, Script_ScriptMenuResponse);
 	hooktable::preserver<void>(HOOK_PREFIX("Script_OpenScriptMenu"), 0x46D4CF, Script_OpenScriptMenu);
 
-	//hooktable::preserver<char, GfxViewParms*>(HOOK_PREFIX("RB_DrawDebug"), 0x658860, RB_DrawDebug);
-
 	if (COD4X::get()) {
 		BG_WeaponNames = reinterpret_cast<WeaponDef**>(COD4X::get() + 0x443DDE0);
 	}
@@ -60,6 +62,12 @@ void CG_CreateHooks()
 	hooktable::preserver<void>(HOOK_PREFIX("R_RecoverLostDevice"), 0x5F5360, R_RecoverLostDevice);
 	hooktable::preserver<void>(HOOK_PREFIX("CL_ShutdownRenderer"), 0x46CA40, CL_ShutdownRenderer);
 	hooktable::preserver<LRESULT, HWND, UINT, WPARAM, LPARAM>(HOOK_PREFIX("WndProc"), COD4X::get() ? COD4X::get() + 0x801D6 : 0x57BB20, WndProc);
+
+	hooktable::preserver<void>(HOOK_PREFIX("SV_SendMessageToClientASM"), 0x535BB0, SV_SendMessageToClientASM);
+	//hooktable::preserver<void>(HOOK_PREFIX("ClientThink_realASM"), 0x4A8500, ClientThink_realASM);
+	//hooktable::preserver<void>(HOOK_PREFIX("Pmove"), 0x414D10, Pmove);
+
+	hooktable::preserver<void, GfxViewParms*>(HOOK_PREFIX("RB_DrawDebug"), 0x658860, RB_DrawDebug);
 
 	if (COD4X::get()) {
 		hooktable::preserver<int, msg_t*>(HOOK_PREFIX("MSG_ParseServerCommand"), COD4X::get() + 0x12D6B, COD4X::MSG_ParseServerCommand);

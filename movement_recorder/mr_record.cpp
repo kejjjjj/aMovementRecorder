@@ -7,6 +7,8 @@
 #include <iostream>
 #include <ranges>
 #include <dvar/dvar.hpp>
+#include "mr_main.hpp"
+#include <sv/sv_client.hpp>
 
 
 CRecorder::~CRecorder() = default;
@@ -29,7 +31,6 @@ void CRecorder::Record(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) noe
 	//}
 
 	playback_cmd rcmd;
-
 	rcmd.buttons = cmd->buttons;
 	rcmd.forwardmove = cmd->forwardmove;
 	rcmd.rightmove = cmd->rightmove;
@@ -42,10 +43,6 @@ void CRecorder::Record(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) noe
 	rcmd.viewangles = CG_GetClientAngles();
 	rcmd.delta_angles = ps->delta_angles;
 	rcmd.cmd_angles = cmd->angles;
-
-	rcmd.delta_angles.y = (ps->delta_angles[YAW]);
-
-
 
 	data.push_back(std::move(rcmd));
 }

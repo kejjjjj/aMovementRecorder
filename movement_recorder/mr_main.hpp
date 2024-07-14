@@ -6,6 +6,7 @@
 #include <com/com_channel.hpp>
 #include <map>
 #include <memory>
+#include <mutex>
 
 enum is_segment_t : bool
 {
@@ -27,6 +28,7 @@ class CLineup;
 class CRecorder;
 class CPlayback;
 class CPlaybackGui;
+class CPlaybackSimulation;
 struct PlaybackInitializer;
 
 struct playback_cmd;
@@ -46,6 +48,7 @@ class CMovementRecorder
 	friend class CRMovementRecorder;
 	friend class CGuiMovementRecorder;
 	friend class CMovementRecorderIO;
+	friend class CRBMovementRecorder;
 
 public:
 	CMovementRecorder();
@@ -73,6 +76,8 @@ public:
 	CPlayback* GetActivePlayback();
 	CPlayback* GetActivePlayback() const;
 
+	const CPlaybackSimulation* GetSimulation() const { return Simulation.get(); }
+
 protected:
 
 	//Segmenting
@@ -89,6 +94,9 @@ protected:
 
 	//Lineup
 	std::unique_ptr<CLineupPlayback> Lineup;
+
+	//Simulations
+	std::unique_ptr<CPlaybackSimulation> Simulation;
 
 private:
 	void UpdateLineup(usercmd_s* cmd, usercmd_s* oldcmd);
@@ -115,7 +123,23 @@ private:
 	CMovementRecorder& m_oRefMovementRecorder;
 
 };
+class CRBMovementRecorder
+{
+	NONCOPYABLE(CRBMovementRecorder);
 
+public:
+
+	CRBMovementRecorder(CMovementRecorder& recorder)
+		: m_oRefMovementRecorder(recorder) {}
+
+	void RB_Render() const;
+
+private:
+	void RB_RenderOrigins() const;
+
+	CMovementRecorder& m_oRefMovementRecorder;
+
+};
 
 class CGuiMovementRecorder
 {

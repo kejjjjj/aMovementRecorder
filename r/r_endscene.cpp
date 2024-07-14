@@ -1,14 +1,16 @@
-#include "r/r_drawactive.hpp"
-#include "movement_recorder/mr_main.hpp"
 
 #if(DEBUG_SUPPORT)
-#include "utils/hook.hpp"
-#include "r/gui/r_main_gui.hpp"
-#include "cod4x/cod4x.hpp"
 #include "cg/cg_local.hpp"
 #include "cg/cg_offsets.hpp"
+#include "cod4x/cod4x.hpp"
 #include "main.hpp"
-#include <r/r_utils.hpp>
+#include "movement_recorder/mr_main.hpp"
+#include "movement_recorder/mr_tests.hpp"
+#include "r/gui/r_main_gui.hpp"
+#include "r/r_drawactive.hpp"
+#include "r/r_utils.hpp"
+#include "utils/hook.hpp"
+
 long __stdcall R_EndScene(IDirect3DDevice9* device)
 {
 	if (R_NoRender())
@@ -17,6 +19,10 @@ long __stdcall R_EndScene(IDirect3DDevice9* device)
 	auto MainGui = CStaticMainGui::Owner.get();
 
 	if (MainGui && MainGui->OnFrameBegin()) {
+
+		if (const auto sim = CStaticMovementRecorder::Instance->GetSimulation())
+			sim->RenderPath();
+
 		MainGui->Render();
 
 		MainGui->OnFrameEnd();

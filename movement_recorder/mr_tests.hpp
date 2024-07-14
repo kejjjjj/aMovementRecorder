@@ -1,6 +1,8 @@
 #pragma once
 #include "cg/cg_local.hpp"
 #include "utils/typedefs.hpp"
+#include <vector>
+#include <mutex>
 
 class CPlayback;
 
@@ -29,8 +31,15 @@ public:
 
 	bool Simulate(const fvec3& origin, const fvec3& angles);
 	const auto* GetAnalysis() const noexcept { return &analysis; }
+
+	//this doesn't belong here but this is not supposed to be clean!
+	void RenderPath() const;
+	
 private:
+	mutable std::mutex SimulationMutex;
 	CPlaybackSimulationAnalysis analysis{};
+
+	//might point to trash so beware of object lifetime!
 	const CPlayback& m_oRefPlayback;
 };
 

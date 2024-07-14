@@ -12,6 +12,12 @@
 #include <windows.h>
 #include <cl/cl_utils.hpp>
 #include "cl/cl_move.hpp"
+#include <utils/hook.hpp>
+#include <geo/geo_shapes.hpp>
+
+#include "r/backend/rb_endscene.hpp"
+#include <sys/sys_main.hpp>
+#include <r/r_utils.hpp>
 
 #define RGBA(r,g,b,a) vec4_t{r,g,b,a}
 
@@ -28,8 +34,8 @@ static void CG_RenderStatusText(const char* string, const vec4_t color, const ve
 }
 void CRMovementRecorder::CG_Render() const
 {
-	if (NVar_FindMalleableVar<bool>("Show Origins")->Get())
-		CG_RenderOrigins();
+	//if (NVar_FindMalleableVar<bool>("Show Origins")->Get())
+	//	CG_RenderOrigins();
 
 	if (NVar_FindMalleableVar<bool>("Status Text")->Get()) {
 		CG_RenderPrecision();
@@ -38,10 +44,9 @@ void CRMovementRecorder::CG_Render() const
 	//this is useful to have
 	CG_RenderStatus();
 
-	//char buff[12];
-	//sprintf_s(buff, "%.6f", (cgs->predictedPlayerState.delta_angles[YAW]));
-	//CG_RenderStatusText(buff, RGBA(1, 1, 1, 1), 0, -30.f);
-
+	char buff[24];
+	sprintf_s(buff, "%.6f", (cgs->predictedPlayerState.delta_angles[YAW]));
+	CG_RenderStatusText(buff, RGBA(1, 1, 1, 1), 0, -30.f);
 }
 
 void CRMovementRecorder::CG_RenderOrigins() const
@@ -111,5 +116,63 @@ void CRMovementRecorder::CG_RenderStatus() const
 	else if (movementRecorder.IsSegmenting() && movementRecorder.Segmenter->ResultExists())
 		CG_RenderStatusText("segmenting", RGBA(1, 1, 0, 1));
 	
+
+}
+
+
+
+void RB_DrawDebug(GfxViewParms* viewParms)
+{
+
+	if (R_NoRender())
+#if(DEBUG_SUPPORT)
+		return hooktable::find<void>(HOOK_PREFIX(__func__))->call();
+#else
+		return;
+#endif
+
+#if(DEBUG_SUPPORT)
+	hooktable::find<void, GfxViewParms*>(HOOK_PREFIX(__func__))->call(viewParms);
+#endif
+
+
+
+	auto renderer = CRBMovementRecorder(*CStaticMovementRecorder::Instance);
+	renderer.RB_Render();
+
+}
+
+void CRBMovementRecorder::RB_Render() const
+{
+	if (NVar_FindMalleableVar<bool>("Show Origins")->Get())
+		RB_RenderOrigins();
+
+}
+
+void CRBMovementRecorder::RB_RenderOrigins() const
+{
+	const auto& movementRecorder = m_oRefMovementRecorder;
+	const auto ps = &cgs->predictedPlayerState;
+	std::vector<CPlayback*> relevantPlaybacks;
+
+	for (const auto& [name, playback] : movementRecorder.LevelPlaybacks) {
+		if (playback && playback->IsCompatibleWithState(ps))
+			relevantPlaybacks.push_back(playback.get());
+	}
+
+	for (const auto& playback : relevantPlaybacks) {
+
+		const fvec3& origin = playback->cmds.front().origin;
+		const auto points = Geom_CreatePyramid(origin, { 7,7,14 }, fmodf((Sys_MilliSeconds() / 60.f), 360.f));
+		const bool good_deltas = 
+			(ps->delta_angles[YAW] < 0 && playback->cmds.front().delta_angles[YAW] < 0) ||
+			(ps->delta_angles[YAW] >= 0 && playback->cmds.front().delta_angles[YAW] >= 0);
+
+		const auto color = good_deltas ? 
+			vec4_t{0.f, 1.f, 0.f, 0.3f} : //green
+			vec4_t{1.f, 0.f, 0.f, 0.3f};  //red
+
+		RB_DrawPolyInteriors(points, color, true, true);
+	}
 
 }

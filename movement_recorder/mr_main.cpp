@@ -125,7 +125,7 @@ void CMovementRecorder::SelectPlayback()
 				.ignorePitch = 	NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
 			}), 
 
-			segmenting_allowed, no_lineup);
+			segmenting_allowed, lineup);
 
 		return;
 	}
@@ -356,7 +356,7 @@ void CStaticMovementRecorder::Simulation()
 {
 	auto ps = &cgs->predictedPlayerState;
 
-	if (ps->pm_type != PM_NORMAL || !Instance->PendingRecording)
+	if (ps->pm_type != PM_NORMAL || !Instance->PendingRecording || !verySafePlayerStateGlobal)
 		return;
 
 	const CPlayback playback(*Instance->PendingRecording,
@@ -366,24 +366,25 @@ void CStaticMovementRecorder::Simulation()
 			.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get()
 		});
 
+
+
 	const auto origin = Instance->PendingRecording->front().origin;
 	const auto angles = Instance->PendingRecording->front().viewangles;
 
-	CPlaybackSimulation sim(playback);
+	Instance->Simulation = std::make_unique<CPlaybackSimulation>(playback);
+	auto& sim = *Instance->Simulation;
+
+
 
 	sim.Simulate(origin, angles);
 	const auto results = sim.GetAnalysis();
-
 	const auto pm = &results->pm;
+	const auto dist = Instance->PendingRecording->back().origin.dist(pm->ps->origin);
 
-	float dist = Instance->PendingRecording->back().origin.dist(pm->ps->origin);
+	//(fvec3&)ps_loc->origin = pm->ps->origin;
+	//(fvec3&)ps_loc->viewangles = pm->ps->viewangles;
 
-	(fvec3&)ps_loc->origin = pm->ps->origin;
-	(fvec3&)ps_loc->viewangles = pm->ps->viewangles;
-
-
-
-	Com_Printf("distance: ^1%.6f", dist);
+	Com_Printf("distance: ^1%.6f\n", dist);
 
 
 }

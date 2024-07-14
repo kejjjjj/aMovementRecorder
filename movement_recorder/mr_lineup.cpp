@@ -69,17 +69,12 @@ bool CLineup::Update(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd) noexcept
 }
 float GetShorterPath(float source, float destination)
 {
-	float angular_difference = destination - source;
-	float destination_angle = destination;
+	const float src = AngleNormalize180(source);
+	const float dst = AngleNormalize180(destination);
 
-	if (abs(angular_difference) > 180)
-		destination_angle += 360;
-
-	angular_difference = destination_angle - source;
-
-	return angular_difference;
-
+	return AngleNormalize180(dst - src);
 }
+
 void CLineup::UpdateViewangles([[maybe_unused]]usercmd_s* cmd)
 {
 	auto ps = &cgs->predictedPlayerState;
@@ -103,8 +98,6 @@ void CLineup::UpdateViewangles([[maybe_unused]]usercmd_s* cmd)
 	fvec3 destination_deltas = m_vecDestinationAngles.for_each([this, &viewangles, i = 0](float v) mutable {
 		return GetShorterPath(viewangles[i++], v); });
 	
-
-
 	//don't turn too quickly
 	destination_deltas = fvec3().smooth(destination_deltas, m_fDistanceMoved / m_fTotalDistance + 0.001f);
 
@@ -201,8 +194,9 @@ void CLineup::CreatePlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd) 
 
 	pcmd.oldTime = cmd->serverTime;
 	pcmd.serverTime = pcmd.oldTime + (1000 / LINEUP_FPS);
-	pcmd.viewangles = m_vecTargetAngles;
 
+	pcmd.cmd_angles = m_vecTargetAngles.angle_delta(ps->delta_angles).to_short();
+	pcmd.delta_angles = ps->delta_angles;
 
 
 	CStaticMovementRecorder::PushPlayback(
@@ -246,8 +240,9 @@ std::vector<playback_cmd> CLineup::PredictStopPosition(playerState_s* ps, usercm
 	CPmoveSimulation simulation(&pm, c);
 
 
-	
+
 	while (pm.ps->velocity[0] != 0.f || pm.ps->velocity[1] != 0.f || pm.ps->velocity[2] != 0.f) {
+		std::int32_t delta = pm.cmd.serverTime - pm.oldcmd.serverTime;
 		simulation.Simulate();
 		c.forwardmove = 0;
 		c.rightmove = 0;
@@ -255,6 +250,7 @@ std::vector<playback_cmd> CLineup::PredictStopPosition(playerState_s* ps, usercm
 		cmds.emplace_back(playback_cmd::FromPlayerState(pm.ps, &pm.cmd, &pm.oldcmd));
 
 		memcpy(&pm.oldcmd, &pm.cmd, sizeof(pm.oldcmd));
+		pm.cmd.serverTime += delta;
 	}
 
 	if(cmds.empty())
