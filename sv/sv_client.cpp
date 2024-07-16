@@ -3,7 +3,7 @@
 
 #include "sv_client.hpp"
 #include "utils/engine.hpp"
-
+#include "utils/typedefs.hpp"
 
 #include <iostream>
 #include <cg/cg_angles.hpp>
@@ -102,4 +102,30 @@ void Pmove(pmove_t* pm)
 
 		}
 	}
+}
+
+__declspec(naked) void SetClientViewAngleASM()
+{
+	__asm
+	{
+		sub esp, 18h;
+		push ebx;
+		
+		push ebp;
+		mov ebp, [esp + 20h+4];
+		push ebp;
+		push eax;
+		call SetClientViewAngle;
+		add esp, 8;
+		pop ebp;
+		pop ebx;
+		add esp, 18h;
+		retn;
+	}
+}
+void SetClientViewAngle(float* angles, gentity_s* client)
+{
+	(fvec3&)client->r.currentAngles = fvec3(angles);
+	(fvec3&)client->client->ps.viewangles = fvec3(angles);
+
 }

@@ -242,7 +242,7 @@ std::vector<playback_cmd> CLineup::PredictStopPosition(playerState_s* ps, usercm
 
 
 	while (pm.ps->velocity[0] != 0.f || pm.ps->velocity[1] != 0.f || pm.ps->velocity[2] != 0.f) {
-		std::int32_t delta = pm.cmd.serverTime - pm.oldcmd.serverTime;
+		std::int32_t delta = 1000 / c.FPS;
 		simulation.Simulate();
 		c.forwardmove = 0;
 		c.rightmove = 0;

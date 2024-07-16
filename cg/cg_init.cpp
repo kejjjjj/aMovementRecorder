@@ -1,22 +1,25 @@
-#include "cg_init.hpp"
-#include "cg_hooks.hpp"
-
-#include "utils/engine.hpp"
-#include <r/gui/r_movementrecorder.hpp>
-#include <net/nvar_table.hpp>
-
-#include "r/r_drawactive.hpp"
-#include "movement_recorder/mr_main.hpp"
-#include <cmd/cmd.hpp>
-
-#include "shared/sv_shared.hpp"
-#include <net/im_defaults.hpp>
-#include <thread>
-#include <cod4x/cod4x.hpp>
-#include <sys/sys_thread.hpp>
-
 #include "cg/cg_local.hpp"
+#include "cg/cg_memory.hpp"
 #include "cg/cg_offsets.hpp"
+#include "cg_hooks.hpp"
+#include "cg_init.hpp"
+#include "cg/cg_cleanup.hpp"
+
+#include "cmd/cmd.hpp"
+#include "cod4x/cod4x.hpp"
+#include "movement_recorder/mr_main.hpp"
+#include "net/im_defaults.hpp"
+#include "net/nvar_table.hpp"
+#include "r/gui/r_movementrecorder.hpp"
+#include "r/r_drawactive.hpp"
+#include "r/backend/rb_endscene.hpp"
+#include "shared/sv_shared.hpp"
+#include "sys/sys_thread.hpp"
+#include "utils/engine.hpp"
+
+#include <thread>
+
+
 
 using namespace std::chrono_literals;
 
@@ -35,10 +38,8 @@ static void NVar_Setup(NVarTable* table)
 }
 
 #if(DEBUG_SUPPORT)
-#include "cmd/cmd.hpp"
-#include <r/gui/r_main_gui.hpp>
-
-#include <iostream>
+#include "r/gui/r_main_gui.hpp"
+#include "utils/hook.hpp"
 
 void CG_Init()
 {
@@ -77,11 +78,11 @@ void CG_Init()
     table->WriteNVarsToFile();
 
     COD4X::initialize();
+    CG_MemoryTweaks();
     CG_CreatePermaHooks();
 
     Sys_ResumeAllThreads();
 }
-
 #else
 #include <cl/cl_move.hpp>
 void CG_Init()
@@ -116,13 +117,10 @@ void CG_Init()
         ->Call(std::make_unique<CMovementRecorderWindow>(NVAR_TABLE_NAME));
 
     //add the functions that need to be managed by the main module
-    //CMain::Shared::GetFunctionOrExit("Queue_CG_DrawActive")->As<void, drawactive_t>()->Call(CG_DrawActive);
-
     CMain::Shared::GetFunctionOrExit("Queue_CG_DrawActive")->As<void, drawactive_t>()->Call(CG_DrawActive);
     CMain::Shared::GetFunctionOrExit("Queue_CL_FinishMove")->As<void, finishmove_t>()->Call(CL_FinishMove);
-    CMain::Shared::GetFunctionOrExit("Queue_RB_Endscene")->As<void, rb_endscene_t>()->Call(RB_DrawDebug);
-
-    //CMain::Shared::GetFunctionOrExit("Queue_R_EndScene")->As<void, endscene_t&&>()->Call(R_EndScene);
+    CMain::Shared::GetFunctionOrExit("Queue_RB_EndScene")->As<void, rb_endscene_t>()->Call(RB_DrawDebug);
+    CMain::Shared::GetFunctionOrExit("Queue_CG_Cleanup")->As<void, cg_cleanup_t>()->Call(CG_Cleanup);
 
     Cmd_AddCommand("mr_record", CStaticMovementRecorder::ToggleRecording);
     Cmd_AddCommand("mr_playback", CStaticMovementRecorder::SelectPlayback);
@@ -139,7 +137,6 @@ void CG_Init()
 
 
     CMain::Shared::AddFunction(std::make_unique<CSharedFunction<bool>>("PlaybackActive", CStaticMovementRecorder::GetActivePlayback));
-
     CG_CreatePermaHooks();
 
     Sys_ResumeAllThreads();
@@ -147,9 +144,14 @@ void CG_Init()
 
 }
 #endif
+
 void CG_Cleanup()
 {
-    CG_ReleaseHooks();
+#if(DEBUG_SUPPORT)
+    hooktable::find<void>(HOOK_PREFIX(__func__))->call();
+#endif
+
+    CG_SafeExit();
 }
 
 #if(!DEBUG_SUPPORT)
@@ -173,9 +175,6 @@ static PE_EXPORT deserialize_data(const std::string& data)
     return map;
 
 }
-
-//void(*CMain::Shared::AddFunction)(std::unique_ptr<CSharedFunctionBase>&&);
-//CSharedFunctionBase* (*CMain::Shared::GetFunction)(const std::string&);
 
 dll_export void L(void* data) {
 

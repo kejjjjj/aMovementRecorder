@@ -4,30 +4,25 @@
 #include "cl/cl_move.hpp"
 #include "utils/hook.hpp"
 
-#include "r/r_drawactive.hpp"
-#include "wnd/wnd.hpp"
-
-#include "cod4x/cod4x.hpp"
-
 #include "bg/bg_pmove.hpp"
-#include "cl/cl_main.hpp"
-
-#include "scr/scr_menuresponse.hpp"
-#include <shared/sv_shared.hpp>
-
 #include "cg/cg_local.hpp"
 #include "cg/cg_offsets.hpp"
-
+#include "cl/cl_main.hpp"
+#include "cod4x/cod4x.hpp"
 #include "r/backend/rb_endscene.hpp"
-
-#include <thread>
+#include "r/r_drawactive.hpp"
+#include "scr/scr_menuresponse.hpp"
+#include "shared/sv_shared.hpp"
+#include "sv/sv_client.hpp"
+#include "wnd/wnd.hpp"
 
 #include <chrono>
+#include <thread>
+
 using namespace std::chrono_literals;
 
 #if(DEBUG_SUPPORT)
 #include <r/gui/r_gui.hpp>
-#include "sv/sv_client.hpp"
 #endif
 
 static void CG_CreateHooks();
@@ -44,17 +39,19 @@ void CG_CreatePermaHooks()
 
 void CG_CreateHooks()
 {
-
-	
 	hooktable::preserver<void, int>(HOOK_PREFIX("CL_Disconnect"), 0x4696B0, CL_Disconnect);
 	hooktable::preserver<void>(HOOK_PREFIX("PM_Weapon_FinishWeaponChangeASM"), 0x41A5F7, PM_Weapon_FinishWeaponChangeASM);
 
 	hooktable::preserver<void>(HOOK_PREFIX("Script_ScriptMenuResponse"), 0x54DE59, Script_ScriptMenuResponse);
 	hooktable::preserver<void>(HOOK_PREFIX("Script_OpenScriptMenu"), 0x46D4CF, Script_OpenScriptMenu);
 
+	hooktable::preserver<void>(HOOK_PREFIX("SV_SendMessageToClientASM"), 0x535BB0, SV_SendMessageToClientASM);
+
+
 	if (COD4X::get()) {
 		BG_WeaponNames = reinterpret_cast<WeaponDef**>(COD4X::get() + 0x443DDE0);
 	}
+
 #if(DEBUG_SUPPORT)
 	hooktable::preserver<void, usercmd_s*>(HOOK_PREFIX("CL_FinishMove"), 0x463A60u, CL_FinishMove);
 	hooktable::preserver<void>(HOOK_PREFIX("CG_DrawActive"), COD4X::get() ? COD4X::get() + 0x5464 : 0x42F7F0, CG_DrawActive);
@@ -63,11 +60,13 @@ void CG_CreateHooks()
 	hooktable::preserver<void>(HOOK_PREFIX("CL_ShutdownRenderer"), 0x46CA40, CL_ShutdownRenderer);
 	hooktable::preserver<LRESULT, HWND, UINT, WPARAM, LPARAM>(HOOK_PREFIX("WndProc"), COD4X::get() ? COD4X::get() + 0x801D6 : 0x57BB20, WndProc);
 
-	hooktable::preserver<void>(HOOK_PREFIX("SV_SendMessageToClientASM"), 0x535BB0, SV_SendMessageToClientASM);
+	hooktable::preserver<void>(HOOK_PREFIX("CG_Cleanup"), 0x477210, CG_Cleanup);
+	hooktable::preserver<void, GfxViewParms*>(HOOK_PREFIX("RB_DrawDebug"), 0x658860, RB_DrawDebug);
+
 	//hooktable::preserver<void>(HOOK_PREFIX("ClientThink_realASM"), 0x4A8500, ClientThink_realASM);
 	//hooktable::preserver<void>(HOOK_PREFIX("Pmove"), 0x414D10, Pmove);
+	//hooktable::preserver<void>(HOOK_PREFIX("SetClientViewAngleASM"), 0x4AA550, SetClientViewAngleASM);
 
-	hooktable::preserver<void, GfxViewParms*>(HOOK_PREFIX("RB_DrawDebug"), 0x658860, RB_DrawDebug);
 
 	if (COD4X::get()) {
 		hooktable::preserver<int, msg_t*>(HOOK_PREFIX("MSG_ParseServerCommand"), COD4X::get() + 0x12D6B, COD4X::MSG_ParseServerCommand);
@@ -78,9 +77,5 @@ void CG_CreateHooks()
 			reinterpret_cast<size_t>((*reinterpret_cast<PVOID**>(dx->device))[42]), R_EndScene);
 
 #endif
-
-}
-void CG_ReleaseHooks()
-{
 
 }

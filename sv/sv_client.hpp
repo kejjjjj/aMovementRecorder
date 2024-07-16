@@ -10,6 +10,9 @@ void ClientThink_real(usercmd_s* cmd, gentity_s* gentity);
 
 void Pmove(pmove_t* pm);
 
+void SetClientViewAngleASM();
+void SetClientViewAngle(float* angles, gentity_s* client);
+
 class CStaticServerToClient
 {
 public:

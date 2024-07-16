@@ -17,6 +17,7 @@
 #include "imgui/imgui_stdlib.h"
 #include <mutex>
 #include "mr_main.hpp"
+#include <sstream>
 
 CPlaybackSimulation::CPlaybackSimulation(const CPlayback& pb) : m_oRefPlayback(pb){}
 CPlaybackSimulation::~CPlaybackSimulation() = default;
@@ -29,30 +30,37 @@ bool CPlaybackSimulation::Simulate([[maybe_unused]]const fvec3& origin, [[maybe_
 
 	auto& oldcmd = m_oRefPlayback.cmds.front();
 
-	usercmd_s oldUsercmd =oldcmd.ToUserCmd();
-
 	auto& pm = analysis.pm;
 	auto& ps = analysis.ps;
 
 	ps = cgs->predictedPlayerState;
+
+	AgentIOWriter writer("delta_tests.txt", false);
+	std::stringstream buffer;
+
+	usercmd_s oldUsercmd = oldcmd.ToUserCmd();
+
+	(fvec3&)ps.origin = origin;
+	(fvec3&)ps.velocity = fvec3(0, 0, 0);
 	ps.commandTime = oldUsercmd.serverTime;
 	ps.jumpTime = 0;
 	ps.sprintState = {};
 	ps.pm_time = 0;
 	ps.pm_type = PM_NORMAL;
 
+	//ps.delta_angles[YAW] = delta;
 
-	pm = PM_Create(&ps, CL_GetUserCmd(clients->cmdNumber-1), CL_GetUserCmd(clients->cmdNumber - 2));
+	pm = PM_Create(&ps, CL_GetUserCmd(clients->cmdNumber - 1), CL_GetUserCmd(clients->cmdNumber - 2));
 	CPmoveSimulation sim(&pm);
 
 	oldUsercmd.serverTime -= 3;
 
 	for (const auto& cmd : m_oRefPlayback.cmds) {
-		
-		analysis.frames.emplace_back(FrameDecl{ 
-			.origin = pm.ps->origin, 
-			.angles = pm.ps->viewangles 
-		});
+
+		analysis.frames.emplace_back(FrameDecl{
+			.origin = pm.ps->origin,
+			.angles = pm.ps->viewangles
+			});
 
 		auto usercmd = cmd.ToUserCmd();
 
@@ -66,9 +74,16 @@ bool CPlaybackSimulation::Simulate([[maybe_unused]]const fvec3& origin, [[maybe_
 		sim.Simulate(&usercmd, &oldUsercmd);
 		oldUsercmd = usercmd;
 
-		
-
 	}
+
+	buffer << std::format("distance: {}\tdelta: {}\n", m_oRefPlayback.cmds.back().origin.dist(pm.ps->origin), ps.delta_angles[YAW]);
+
+	//const auto dist = m_oRefPlayback.cmds.back().origin.dist(pm.ps->origin);
+	//Com_Printf("distance: ^1%.6f, (^2%.2f°)\n", dist, delta);
+	
+
+	writer.IO_Write(buffer.str());
+
 	return true;
 
 

@@ -1,3 +1,4 @@
+#include "r/r_drawactive.hpp"
 
 #if(DEBUG_SUPPORT)
 #include "cg/cg_local.hpp"
@@ -7,7 +8,6 @@
 #include "movement_recorder/mr_main.hpp"
 #include "movement_recorder/mr_tests.hpp"
 #include "r/gui/r_main_gui.hpp"
-#include "r/r_drawactive.hpp"
 #include "r/r_utils.hpp"
 #include "utils/hook.hpp"
 

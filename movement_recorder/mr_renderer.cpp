@@ -39,14 +39,15 @@ void CRMovementRecorder::CG_Render() const
 
 	if (NVar_FindMalleableVar<bool>("Status Text")->Get()) {
 		CG_RenderPrecision();
+
+		char buff[24];
+		sprintf_s(buff, "%.6f", (cgs->predictedPlayerState.delta_angles[YAW]));
+		CG_RenderStatusText(buff, RGBA(1, 1, 1, 1), 0, -30.f);
 	}
 
 	//this is useful to have
 	CG_RenderStatus();
 
-	char buff[24];
-	sprintf_s(buff, "%.6f", (cgs->predictedPlayerState.delta_angles[YAW]));
-	CG_RenderStatusText(buff, RGBA(1, 1, 1, 1), 0, -30.f);
 }
 
 void CRMovementRecorder::CG_RenderOrigins() const
@@ -121,12 +122,12 @@ void CRMovementRecorder::CG_RenderStatus() const
 
 
 
-void RB_DrawDebug(GfxViewParms* viewParms)
+void RB_DrawDebug([[maybe_unused]]GfxViewParms* viewParms)
 {
 
 	if (R_NoRender())
 #if(DEBUG_SUPPORT)
-		return hooktable::find<void>(HOOK_PREFIX(__func__))->call();
+		return hooktable::find<void, GfxViewParms*>(HOOK_PREFIX(__func__))->call(viewParms);
 #else
 		return;
 #endif

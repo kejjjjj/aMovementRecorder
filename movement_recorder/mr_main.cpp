@@ -356,7 +356,7 @@ void CStaticMovementRecorder::Simulation()
 {
 	auto ps = &cgs->predictedPlayerState;
 
-	if (ps->pm_type != PM_NORMAL || !Instance->PendingRecording || !verySafePlayerStateGlobal)
+	if (ps->pm_type != PM_NORMAL || !Instance->PendingRecording)
 		return;
 
 	const CPlayback playback(*Instance->PendingRecording,
@@ -377,14 +377,14 @@ void CStaticMovementRecorder::Simulation()
 
 
 	sim.Simulate(origin, angles);
-	const auto results = sim.GetAnalysis();
-	const auto pm = &results->pm;
-	const auto dist = Instance->PendingRecording->back().origin.dist(pm->ps->origin);
+	//const auto results = sim.GetAnalysis();
+	//const auto pm = &results->pm;
+	//const auto dist = Instance->PendingRecording->back().origin.dist(pm->ps->origin);
 
-	//(fvec3&)ps_loc->origin = pm->ps->origin;
-	//(fvec3&)ps_loc->viewangles = pm->ps->viewangles;
+	////(fvec3&)ps_loc->origin = pm->ps->origin;
+	////(fvec3&)ps_loc->viewangles = pm->ps->viewangles;
 
-	Com_Printf("distance: ^1%.6f\n", dist);
+	//Com_Printf("distance: ^1%.6f\n", dist);
 
 
 }
