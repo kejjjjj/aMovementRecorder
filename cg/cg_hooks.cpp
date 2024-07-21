@@ -40,7 +40,6 @@ void CG_CreatePermaHooks()
 void CG_CreateHooks()
 {
 	hooktable::preserver<void, int>(HOOK_PREFIX("CL_Disconnect"), 0x4696B0, CL_Disconnect);
-	hooktable::preserver<void>(HOOK_PREFIX("PM_Weapon_FinishWeaponChangeASM"), 0x41A5F7, PM_Weapon_FinishWeaponChangeASM);
 
 	hooktable::preserver<void>(HOOK_PREFIX("Script_ScriptMenuResponse"), 0x54DE59, Script_ScriptMenuResponse);
 	hooktable::preserver<void>(HOOK_PREFIX("Script_OpenScriptMenu"), 0x46D4CF, Script_OpenScriptMenu);
@@ -53,6 +52,8 @@ void CG_CreateHooks()
 	}
 
 #if(DEBUG_SUPPORT)
+	hooktable::preserver<void>(HOOK_PREFIX("PM_Weapon_FinishWeaponChangeASM"), 0x41A5F7, PM_Weapon_FinishWeaponChangeASM);
+
 	hooktable::preserver<void, usercmd_s*>(HOOK_PREFIX("CL_FinishMove"), 0x463A60u, CL_FinishMove);
 	hooktable::preserver<void>(HOOK_PREFIX("CG_DrawActive"), COD4X::get() ? COD4X::get() + 0x5464 : 0x42F7F0, CG_DrawActive);
 

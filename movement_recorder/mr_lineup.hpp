@@ -39,8 +39,6 @@ private:
 	void CreatePlayback(usercmd_s* cmd, usercmd_s* oldcmd) const;
 	bool CanPathfind() const noexcept;
 
-	
-	std::vector<playback_cmd> PredictStopPosition(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) const;
 
 	fvec3 m_vecDestination;
 	fvec3 m_vecDestinationAngles;

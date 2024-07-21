@@ -141,7 +141,7 @@ void CLineup::MoveCloser(usercmd_s* cmd, usercmd_s* oldcmd)
 		cmd->buttons |= m_iCmdButtons;
 		cmd->forwardmove = 0;
 		cmd->rightmove = 0;
-		const auto cmds = PredictStopPosition(ps, cmd, oldcmd);
+		const auto cmds = CPmoveSimulation::PredictStopPosition(ps, cmd, oldcmd, LINEUP_FPS);
 		const fvec3 predicted_pos = cmds.back().origin;
 
 		const float xy_dist = fvec2(m_vecDestination).dist(fvec2(predicted_pos));
@@ -222,42 +222,6 @@ bool CLineup::CanPathfind() const noexcept
 	//trace_t trace;
 	//CG_TracePoint(vec3_t{ 1,1,1 }, &trace, o, vec3_t{ -1,-1,-1 }, &m_vecDestination.x, cgs->clientNum, MASK_PLAYERSOLID, 0, 0);
 	//return trace.fraction >= 0.98f;
-}
-std::vector<playback_cmd> CLineup::PredictStopPosition(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) const
-{
-	std::vector<playback_cmd> cmds;
-
-	pmove_t pm = PM_Create(ps, cmd, oldcmd);
-
-	CSimulationController c;
-	c.buttons = cmd->buttons;
-	c.forwardmove = 0;
-	c.rightmove = 0;
-	c.FPS = LINEUP_FPS;
-	c.weapon = cmd->weapon;
-	c.viewangles = CSimulationController::CAngles{ .viewangles = {0,0,0}, .angle_enum = EViewAngle::FixedTurn, .smoothing = 0.f };
-
-	CPmoveSimulation simulation(&pm, c);
-
-
-
-	while (pm.ps->velocity[0] != 0.f || pm.ps->velocity[1] != 0.f || pm.ps->velocity[2] != 0.f) {
-		std::int32_t delta = 1000 / c.FPS;
-		simulation.Simulate();
-		c.forwardmove = 0;
-		c.rightmove = 0;
-
-		cmds.emplace_back(playback_cmd::FromPlayerState(pm.ps, &pm.cmd, &pm.oldcmd));
-
-		memcpy(&pm.oldcmd, &pm.cmd, sizeof(pm.oldcmd));
-		pm.cmd.serverTime += delta;
-	}
-
-	if(cmds.empty())
-		cmds.emplace_back(playback_cmd::FromPlayerState(pm.ps, &pm.cmd, &pm.oldcmd));
-
-
-	return cmds;
 }
 
 CLineupPlayback::CLineupPlayback(const CPlayback& playback, const fvec3& destination, const fvec3& destination_angles)

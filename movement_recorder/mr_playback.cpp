@@ -2,15 +2,12 @@
 #include "cg/cg_local.hpp"
 #include "cg/cg_offsets.hpp"
 #include "mr_playback.hpp"
-#include "mr_record.hpp"
 #include "net/nvar_table.hpp"
 #include <bg/bg_pmove_simulation.hpp>
 #include <cg/cg_client.hpp>
 #include <com/com_channel.hpp>
 #include <dvar/dvar.hpp>
 #include <ranges>
-#include <iostream>
-#include <sv/sv_client.hpp>
 
 CPlayback::CPlayback(std::vector<playback_cmd>&& _data, const PlaybackInitializer& init)
 	: cmds(std::forward<std::vector<playback_cmd>&&>(_data)) {
@@ -24,6 +21,7 @@ CPlayback::CPlayback(std::vector<playback_cmd>&& _data, const PlaybackInitialize
 	};
 
 	m_bIgnorePitch = init.ignorePitch;
+	m_bIgnoreWeapon = init.ignoreWeapon;
 
 	EraseDeadFrames();
 
@@ -38,6 +36,7 @@ CPlayback::CPlayback(const std::vector<playback_cmd>& _data, const PlaybackIniti
 	};
 
 	m_bIgnorePitch = init.ignorePitch;
+	m_bIgnoreWeapon = init.ignoreWeapon;
 
 	EraseDeadFrames();
 }
@@ -93,8 +92,10 @@ void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 
 	TryFixingTime(cmd, oldcmd);
 
-	cmd->offHandIndex = icmd->offhand;
-	cmd->weapon = icmd->weapon;
+	if (!m_bIgnoreWeapon) {
+		cmd->offHandIndex = icmd->offhand;
+		cmd->weapon = icmd->weapon;
+	}
 
 	cmd->forwardmove = icmd->forwardmove;
 	cmd->rightmove = icmd->rightmove;
@@ -202,7 +203,6 @@ bool CPlaybackIOReader::Read()
 		{
 			.g_speed = header.m_iSpeed,
 			.jump_slowdownEnable = header.m_bJumpSlowdownEnable,
-			.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get() 
 		});
 	return true;
 }

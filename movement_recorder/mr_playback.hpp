@@ -34,7 +34,9 @@ public:
 	__forceinline void IgnorePitch(bool ignore = true) const noexcept {
 		m_bIgnorePitch = ignore;
 	}
-
+	__forceinline void IgnoreWeapon(bool ignore = true) const noexcept {
+		m_bIgnoreWeapon = ignore;
+	}
 	operator std::vector<playback_cmd>();
 
 	friend class CPlaybackIOWriter;
@@ -43,16 +45,17 @@ public:
 
 	std::vector<playback_cmd> cmds;
 
-private:
-	void EraseDeadFrames();
-	void TryFixingTime(usercmd_s* cmd, usercmd_s* oldcmd);
-
 	enum slowdown_t : std::int8_t
 	{
 		disabled,
 		enabled,
 		both
 	};
+
+private:
+	void EraseDeadFrames();
+	void TryFixingTime(usercmd_s* cmd, usercmd_s* oldcmd);
+
 
 #pragma pack(push, 1)
 	struct Header
@@ -67,7 +70,7 @@ private:
 	std::int32_t m_iFirstOldServerTime = 0;
 
 	mutable bool m_bIgnorePitch = false;
-
+	mutable bool m_bIgnoreWeapon = false;
 };
 
 class CPlaybackGui

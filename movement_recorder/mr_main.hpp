@@ -1,12 +1,17 @@
 #pragma once
 
-#include "global_macros.hpp"
-
-#include <queue>
-#include <com/com_channel.hpp>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <queue>
+
+#include "global_macros.hpp"
+
+/***********************************************************************
+ > the MOVEMENT_RECORDER macro is used because if other debug modules
+ > need to use the movement recorder, they only want the most minimal
+ > part of it
+***********************************************************************/
 
 enum is_segment_t : bool
 {
@@ -20,16 +25,19 @@ enum is_lineup_t : bool
 	lineup = true,
 };
 
+class CPlayback;
+struct PlaybackInitializer;
+
+#if(MOVEMENT_RECORDER)
 class CGuiMovementRecorder;
 class CRMovementRecorder;
 class CPlaybackSegmenter;
 class CLineupPlayback;
 class CLineup;
 class CRecorder;
-class CPlayback;
 class CPlaybackGui;
 class CPlaybackSimulation;
-struct PlaybackInitializer;
+#endif
 
 struct playback_cmd;
 struct usercmd_s;
@@ -45,15 +53,20 @@ class CMovementRecorder
 {
 	NONCOPYABLE(CMovementRecorder);
 	friend class CStaticMovementRecorder;
+
+#if(MOVEMENT_RECORDER)
 	friend class CRMovementRecorder;
 	friend class CGuiMovementRecorder;
 	friend class CMovementRecorderIO;
 	friend class CRBMovementRecorder;
+#endif
 
 public:
 	CMovementRecorder();
 	virtual ~CMovementRecorder();
 	void Update(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd);
+
+#if(MOVEMENT_RECORDER)
 
 	// Recording control
 	void StartRecording(bool start_from_movement = false);
@@ -69,16 +82,32 @@ public:
 	void SelectPlayback();
 	void OnDisconnect();
 
+
 	// Add playback to the queue or segmenter
 	void PushPlayback(CPlayback&& playback, is_segment_t segmenting_allowed = no_segmenting, is_lineup_t do_lineup = no_lineup);
 	void PushPlayback(const CPlayback& playback, is_segment_t segmenting_allowed = no_segmenting, is_lineup_t do_lineup = no_lineup);
+#else
+	void PushPlayback(CPlayback&& playback);
+	void PushPlayback(const CPlayback& playback);
+#endif
+
+
 
 	CPlayback* GetActivePlayback();
 	CPlayback* GetActivePlayback() const;
 
+#if(MOVEMENT_RECORDER)
 	const CPlaybackSimulation* GetSimulation() const { return Simulation.get(); }
+#endif
 
 protected:
+
+	//Playback
+	std::queue<std::unique_ptr<CPlayback>> PlaybackQueue;
+	CPlayback* PlaybackActive = {};
+
+#if(MOVEMENT_RECORDER)
+	std::map<std::string, std::unique_ptr<CPlayback>> LevelPlaybacks;
 
 	//Segmenting
 	std::unique_ptr<CPlaybackSegmenter> Segmenter;
@@ -87,22 +116,25 @@ protected:
 	std::unique_ptr<std::vector<playback_cmd>> PendingRecording;
 	std::unique_ptr<CRecorder> Recorder;
 	
-	//Playback
-	std::queue<std::unique_ptr<CPlayback>> PlaybackQueue;
-	std::map<std::string, std::unique_ptr<CPlayback>> LevelPlaybacks;
-	CPlayback* PlaybackActive = {};
 
 	//Lineup
 	std::unique_ptr<CLineupPlayback> Lineup;
 
 	//Simulations
 	std::unique_ptr<CPlaybackSimulation> Simulation;
+#endif
 
 private:
+#if(MOVEMENT_RECORDER)
 	void UpdateLineup(usercmd_s* cmd, usercmd_s* oldcmd);
+#endif
+
 	void UpdatePlaybackQueue(usercmd_s* cmd, usercmd_s* oldcmd);
 
 };
+
+#if(MOVEMENT_RECORDER)
+
 
 class CRMovementRecorder
 {
@@ -179,6 +211,8 @@ private:
 
 };
 
+#endif
+
 class CStaticMovementRecorder
 {
 public:
@@ -188,6 +222,8 @@ public:
 	static void PushPlayback(std::vector<playback_cmd>&& cmds, const PlaybackInitializer& init);
 	static void PushPlayback(const std::vector<playback_cmd>& cmds, const PlaybackInitializer& init);
 	static bool GetActivePlayback() noexcept;
+
+#if(MOVEMENT_RECORDER)
 
 	//console commands
 	static void ToggleRecording();
@@ -202,9 +238,10 @@ public:
 	//automatically load all recordings for the level
 	static void Update();
 
-
 private:
 
 	static bool m_bPlaybacksLoaded;
+
+#endif
 
 };

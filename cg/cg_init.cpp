@@ -35,6 +35,8 @@ static void NVar_Setup(NVarTable* table)
     table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, 0.f, 1.f, "%.6f");
 
     table->AddImNvar<bool, ImCheckbox>("Ignore Pitch", false, NVar_ArithmeticToString<bool>);
+    table->AddImNvar<bool, ImCheckbox>("Ignore Weapon", false, NVar_ArithmeticToString<bool>);
+
 }
 
 #if(DEBUG_SUPPORT)
@@ -133,7 +135,13 @@ void CG_Init()
     //a bit of an awkward implementation, but it resolves the overloaded function ambiguity
     CMain::Shared::AddFunction(
         std::make_unique<CSharedFunction<void, std::vector<playback_cmd>&&, const PlaybackInitializer&>>
-        ("AddPlayback", [&](std::vector<playback_cmd>&& cmd, const PlaybackInitializer& i) { CStaticMovementRecorder::PushPlayback(cmd, i); }));
+        ("AddPlayback", [&](std::vector<playback_cmd>&& cmd, const PlaybackInitializer& i) { CStaticMovementRecorder::PushPlayback(std::move(cmd), i); }));
+
+
+    //C stands for copy
+    CMain::Shared::AddFunction(
+        std::make_unique<CSharedFunction<void, const std::vector<playback_cmd>&, const PlaybackInitializer&>>
+        ("AddPlaybackC", [&](const std::vector<playback_cmd>& cmd, const PlaybackInitializer& i) { CStaticMovementRecorder::PushPlayback(cmd, i); }));
 
 
     CMain::Shared::AddFunction(std::make_unique<CSharedFunction<bool>>("PlaybackActive", CStaticMovementRecorder::GetActivePlayback));

@@ -1,8 +1,13 @@
-#include "mr_lineup.hpp"
 #include "mr_main.hpp"
 #include "mr_playback.hpp"
+
+#if(MOVEMENT_RECORDER)
+#include "mr_lineup.hpp"
 #include "mr_record.hpp"
 #include "mr_segmenter.hpp"
+#include "mr_tests.hpp"
+#endif
+
 #include <cg/cg_angles.hpp>
 #include <cg/cg_local.hpp>
 #include <cg/cg_offsets.hpp>
@@ -15,7 +20,6 @@
 #include <Windows.h>
 #include "bg/bg_pmove_simulation.hpp"
 #include <cl/cl_utils.hpp>
-#include "mr_tests.hpp"
 
 std::unique_ptr<CMovementRecorder> CStaticMovementRecorder::Instance = std::make_unique<CMovementRecorder>();
 
@@ -25,9 +29,10 @@ CMovementRecorder::CMovementRecorder()
 }
 
 CMovementRecorder::~CMovementRecorder() = default;
-void CMovementRecorder::Update(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd)
+void CMovementRecorder::Update([[maybe_unused]]playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd)
 {
 
+#if(MOVEMENT_RECORDER)
 	UpdateLineup(cmd, oldcmd);
 	UpdatePlaybackQueue(cmd, oldcmd);
 
@@ -41,8 +46,41 @@ void CMovementRecorder::Update(playerState_s* ps, usercmd_s* cmd, usercmd_s* old
 		Segmenter.reset();
 
 	}
-}
+#else
+	UpdatePlaybackQueue(cmd, oldcmd);
+#endif
 
+}
+void CMovementRecorder::UpdatePlaybackQueue(usercmd_s* cmd, [[maybe_unused]] usercmd_s* oldcmd)
+{
+	if (PlaybackQueue.empty())
+		return;
+
+	const auto ps = &cgs->predictedPlayerState;
+
+	//set a new active
+	if (!PlaybackActive) {
+		PlaybackActive = PlaybackQueue.front().get();
+	}
+
+	if (!PlaybackActive)
+		return;
+
+	if (ps->pm_type != PM_NORMAL || WASD_PRESSED())
+		PlaybackActive->StopPlayback();
+
+	PlaybackActive->DoPlayback(cmd, oldcmd);
+
+	if (!PlaybackActive->IsPlayback()) {
+		PlaybackActive = {};
+		PlaybackQueue.pop();
+		return;
+	}
+
+
+
+}
+#if(MOVEMENT_RECORDER)
 void CMovementRecorder::StartRecording(bool start_from_movement) {
 	PendingRecording.reset();
 
@@ -89,29 +127,7 @@ void CMovementRecorder::OnPositionLoaded()
 	}
 
 }
-CPlayback* CMovementRecorder::GetActivePlayback() {
 
-	
-	if (Segmenter && !Segmenter->ResultExists())
-		return Segmenter->GetPlayback();
-
-
-	if (Lineup)
-		return &Lineup->GetPlayback();
-
-	return PlaybackActive;
-
-}
-CPlayback* CMovementRecorder::GetActivePlayback() const {
-	if (Segmenter)
-		return Segmenter->GetPlayback();
-
-	if (Lineup)
-		return &Lineup->GetPlayback();
-
-	return PlaybackActive;
-
-}
 void CMovementRecorder::SelectPlayback()
 {
 	const is_segment_t segmenting_allowed = static_cast<is_segment_t>(NVar_FindMalleableVar<bool>("Segmenting")->Get());
@@ -123,6 +139,8 @@ void CMovementRecorder::SelectPlayback()
 				.g_speed = CG_GetSpeed(&cgs->predictedPlayerState),
 				.jump_slowdownEnable = Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
 				.ignorePitch = 	NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+				.ignoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get(),
+
 			}), 
 
 			segmenting_allowed, lineup);
@@ -152,6 +170,7 @@ void CMovementRecorder::SelectPlayback()
 			});
 
 		(*closest)->IgnorePitch(NVar_FindMalleableVar<bool>("Ignore Pitch")->Get());
+		(*closest)->IgnoreWeapon(NVar_FindMalleableVar<bool>("Ignore Weapon")->Get());
 
 		return PushPlayback(**closest, segmenting_allowed, lineup);
 
@@ -228,32 +247,8 @@ void CMovementRecorder::UpdateLineup(usercmd_s* cmd, usercmd_s* oldcmd)
 
 
 }
-void CMovementRecorder::UpdatePlaybackQueue(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
-{
-	if (PlaybackQueue.empty())
-		return;
-
-	const auto ps = &cgs->predictedPlayerState;
-
-	//set a new active
-	if (!PlaybackActive) {
-		PlaybackActive = PlaybackQueue.front().get();
-	}
-
-	if (ps->pm_type != PM_NORMAL || WASD_PRESSED())
-		PlaybackActive->StopPlayback();
-
-	PlaybackActive->DoPlayback(cmd, oldcmd);
-
-	if (!PlaybackActive->IsPlayback()) {
-		PlaybackActive = {};
-		PlaybackQueue.pop();
-		return;
-	}
 
 
-
-}
 void CStaticMovementRecorder::SelectPlayback()
 {
 	return Instance->SelectPlayback();
@@ -271,12 +266,6 @@ void CStaticMovementRecorder::ToggleRecording()
 
 
 	Instance->StartRecording();
-}
-void CStaticMovementRecorder::PushPlayback(std::vector<playback_cmd>&& cmds, const PlaybackInitializer& init) {
-	Instance->PushPlayback(CPlayback(std::move(cmds), init));
-}
-void CStaticMovementRecorder::PushPlayback(const std::vector<playback_cmd>& cmds, const PlaybackInitializer& init) {
-	Instance->PushPlayback(CPlayback(cmds, init), no_segmenting, no_lineup);
 }
 
 void CStaticMovementRecorder::OnDisconnect() {
@@ -347,10 +336,6 @@ void CStaticMovementRecorder::Clear() {
 	Instance->PendingRecording.reset();
 };
 
-bool CStaticMovementRecorder::GetActivePlayback() noexcept
-{
-	return Instance->GetActivePlayback();
-}
 
 void CStaticMovementRecorder::Simulation()
 {
@@ -363,7 +348,9 @@ void CStaticMovementRecorder::Simulation()
 		{
 			.g_speed = CG_GetSpeed(&cgs->predictedPlayerState),
 			.jump_slowdownEnable = Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
-			.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get()
+			.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+			.ignoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get()
+
 		});
 
 
@@ -387,4 +374,63 @@ void CStaticMovementRecorder::Simulation()
 	//Com_Printf("distance: ^1%.6f\n", dist);
 
 
+}
+
+#else
+void CMovementRecorder::PushPlayback(CPlayback&& playback)
+{
+	if (playback.cmds.empty())
+		return;
+
+	PlaybackQueue.emplace(std::make_unique<CPlayback>(std::forward<CPlayback&&>(playback)));
+}
+void CMovementRecorder::PushPlayback(const CPlayback& playback)
+{
+	if (playback.cmds.empty())
+		return;
+
+	PlaybackQueue.emplace(std::make_unique<CPlayback>(playback));
+}
+#endif
+
+
+
+CPlayback* CMovementRecorder::GetActivePlayback() {
+
+#if(MOVEMENT_RECORDER)
+	if (Segmenter && !Segmenter->ResultExists())
+		return Segmenter->GetPlayback();
+
+
+	if (Lineup)
+		return &Lineup->GetPlayback();
+#endif
+
+	return PlaybackActive;
+
+}
+CPlayback* CMovementRecorder::GetActivePlayback() const {
+#if(MOVEMENT_RECORDER)
+
+	if (Segmenter)
+		return Segmenter->GetPlayback();
+
+	if (Lineup)
+		return &Lineup->GetPlayback();
+#endif
+	return PlaybackActive;
+
+}
+
+void CStaticMovementRecorder::PushPlayback(std::vector<playback_cmd>&& cmds, const PlaybackInitializer& init) {
+	if(Instance)
+		Instance->PushPlayback(CPlayback(std::move(cmds), init));
+}
+void CStaticMovementRecorder::PushPlayback(const std::vector<playback_cmd>& cmds, const PlaybackInitializer& init) {
+	if (Instance)
+		Instance->PushPlayback(CPlayback(cmds, init));
+}
+bool CStaticMovementRecorder::GetActivePlayback() noexcept
+{
+	return Instance->GetActivePlayback();
 }

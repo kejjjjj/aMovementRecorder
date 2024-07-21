@@ -1,12 +1,13 @@
-#include "mr_main.hpp"
+#include "bg/bg_pmove_simulation.hpp"
+#include "cg/cg_local.hpp"
+#include "cl/cl_utils.hpp"
+#include "com/com_channel.hpp"
+#include "dvar/dvar.hpp"
 #include "main.hpp"
+#include "mr_main.hpp"
 #include "mr_playback.hpp"
 #include "mr_record.hpp"
-#include "dvar/dvar.hpp"
-#include "bg/bg_pmove_simulation.hpp"
-#include <utils/resolution.hpp>
-#include <cl/cl_utils.hpp>
-#include <cg/cg_local.hpp>
+#include "utils/resolution.hpp"
 
 CPlaybackGui::CPlaybackGui(CPlayback& owner, const std::string name) : m_refOwner(owner), m_sName(name) {
 	m_iCurrentSlowdown = static_cast<int>(m_refOwner.m_objHeader.m_bJumpSlowdownEnable);
