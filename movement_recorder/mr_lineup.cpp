@@ -151,9 +151,10 @@ void CLineup::MoveCloser(usercmd_s* cmd, usercmd_s* oldcmd)
 			m_uAccuracyTestFrames = cmds.size();
 			CStaticMovementRecorder::PushPlayback(cmds, 
 				{
-					.g_speed = CG_GetSpeed(&cgs->predictedPlayerState), 
-					.jump_slowdownEnable = CG_HasJumpSlowdown(),
-					.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+					.m_iGSpeed = CG_GetSpeed(&cgs->predictedPlayerState),
+					.m_eJumpSlowdownEnable = (slowdown_t)Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
+					.m_bIgnorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+					.m_bIgnoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get(),
 				});
 
 			return;
@@ -204,9 +205,10 @@ void CLineup::CreatePlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd) 
 			pcmd 
 		},
 		{
-			.g_speed = CG_GetSpeed(&cgs->predictedPlayerState),
-			.jump_slowdownEnable = CG_HasJumpSlowdown(),
-			.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+			.m_iGSpeed = CG_GetSpeed(&cgs->predictedPlayerState),
+			.m_eJumpSlowdownEnable = (slowdown_t)Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
+			.m_bIgnorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+			.m_bIgnoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get(),
 		});
 
 }

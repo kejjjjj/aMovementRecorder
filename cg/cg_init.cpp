@@ -29,13 +29,25 @@ return 0;
 
 static void NVar_Setup(NVarTable* table)
 {
-    table->AddImNvar<bool, ImCheckbox>("Show Origins", true, NVar_ArithmeticToString<bool>);
-    table->AddImNvar<bool, ImCheckbox>("Status Text", true, NVar_ArithmeticToString<bool>);
-    table->AddImNvar<bool, ImCheckbox>("Segmenting", false, NVar_ArithmeticToString<bool>);
-    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, 0.f, 1.f, "%.6f");
+    table->AddImNvar<bool, ImCheckbox>("Show Origins", true, NVar_ArithmeticToString<bool>)
+        ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, "show where saved playbacks start from");
 
-    table->AddImNvar<bool, ImCheckbox>("Ignore Pitch", false, NVar_ArithmeticToString<bool>);
-    table->AddImNvar<bool, ImCheckbox>("Ignore Weapon", false, NVar_ArithmeticToString<bool>);
+    table->AddImNvar<bool, ImCheckbox>("Status Text", true, NVar_ArithmeticToString<bool>)
+        ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, "debugging");
+
+    table->AddImNvar<bool, ImCheckbox>("Segmenting", false, NVar_ArithmeticToString<bool>)
+        ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, "continue recording after pressing WASD during playback");
+
+    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, 0.f, 1.f, "%.6f")
+    ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, 
+        "how close to the origin you need to be before the playback starts\n"
+        "the closer you get, the better the playback will be");
+
+    table->AddImNvar<bool, ImCheckbox>("Ignore Pitch", false, NVar_ArithmeticToString<bool>)
+        ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, "you can freely look up/down during playback");
+
+    table->AddImNvar<bool, ImCheckbox>("Ignore Weapon", false, NVar_ArithmeticToString<bool>)
+        ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, "you can switch weapons during playback");
 
 }
 
@@ -115,6 +127,8 @@ void CG_Init()
 
     table->WriteNVarsToFile();
 
+    ImGui::SetCurrentContext(CMain::Shared::GetFunctionOrExit("GetContext")->As<ImGuiContext*>()->Call());
+
     CMain::Shared::GetFunctionOrExit("AddItem")->As<CGuiElement*, std::unique_ptr<CGuiElement>&&>()
         ->Call(std::make_unique<CMovementRecorderWindow>(NVAR_TABLE_NAME));
 
@@ -134,14 +148,14 @@ void CG_Init()
 
     //a bit of an awkward implementation, but it resolves the overloaded function ambiguity
     CMain::Shared::AddFunction(
-        std::make_unique<CSharedFunction<void, std::vector<playback_cmd>&&, const PlaybackInitializer&>>
-        ("AddPlayback", [&](std::vector<playback_cmd>&& cmd, const PlaybackInitializer& i) { CStaticMovementRecorder::PushPlayback(std::move(cmd), i); }));
+        std::make_unique<CSharedFunction<void, std::vector<playback_cmd>&&, const CPlaybackSettings&>>
+        ("AddPlayback", [&](std::vector<playback_cmd>&& cmd, const CPlaybackSettings& i) { CStaticMovementRecorder::PushPlayback(std::move(cmd), i); }));
 
 
     //C stands for copy
     CMain::Shared::AddFunction(
-        std::make_unique<CSharedFunction<void, const std::vector<playback_cmd>&, const PlaybackInitializer&>>
-        ("AddPlaybackC", [&](const std::vector<playback_cmd>& cmd, const PlaybackInitializer& i) { CStaticMovementRecorder::PushPlayback(cmd, i); }));
+        std::make_unique<CSharedFunction<void, const std::vector<playback_cmd>&, const CPlaybackSettings&>>
+        ("AddPlaybackC", [&](const std::vector<playback_cmd>& cmd, const CPlaybackSettings& i) { CStaticMovementRecorder::PushPlayback(cmd, i); }));
 
 
     CMain::Shared::AddFunction(std::make_unique<CSharedFunction<bool>>("PlaybackActive", CStaticMovementRecorder::GetActivePlayback));
@@ -195,9 +209,6 @@ dll_export void L(void* data) {
     catch ([[maybe_unused]]std::out_of_range& ex) {
         return FatalError(std::format("couldn't get a critical function"));
     }
-    using shared = CMain::Shared;
-
-    ImGui::SetCurrentContext(shared::GetFunctionOrExit("GetContext")->As<ImGuiContext*>()->Call());
 }
 
 #endif

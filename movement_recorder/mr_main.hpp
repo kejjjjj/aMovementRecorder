@@ -26,7 +26,9 @@ enum is_lineup_t : bool
 };
 
 class CPlayback;
-struct PlaybackInitializer;
+class CDebugPlayback;
+
+struct CPlaybackSettings;
 
 #if(MOVEMENT_RECORDER)
 class CGuiMovementRecorder;
@@ -42,7 +44,7 @@ class CPlaybackSimulation;
 struct playback_cmd;
 struct usercmd_s;
 struct playerState_s;
-
+struct GfxViewParms;
 
 /***********************************************************************
  > CMovementRecorder is a class that handles both recording, segmenting, and playbacks
@@ -82,7 +84,6 @@ public:
 	void SelectPlayback();
 	void OnDisconnect();
 
-
 	// Add playback to the queue or segmenter
 	void PushPlayback(CPlayback&& playback, is_segment_t segmenting_allowed = no_segmenting, is_lineup_t do_lineup = no_lineup);
 	void PushPlayback(const CPlayback& playback, is_segment_t segmenting_allowed = no_segmenting, is_lineup_t do_lineup = no_lineup);
@@ -91,6 +92,9 @@ public:
 	void PushPlayback(const CPlayback& playback);
 #endif
 
+	void AddDebugPlayback(const std::vector<playback_cmd>& playback);
+	CDebugPlayback* GetDebugPlayback() const noexcept;
+	void ClearDebugPlayback();
 
 
 	CPlayback* GetActivePlayback();
@@ -105,6 +109,8 @@ protected:
 	//Playback
 	std::queue<std::unique_ptr<CPlayback>> PlaybackQueue;
 	CPlayback* PlaybackActive = {};
+
+	std::unique_ptr<CDebugPlayback> m_pDebugPlayback;
 
 #if(MOVEMENT_RECORDER)
 	std::map<std::string, std::unique_ptr<CPlayback>> LevelPlaybacks;
@@ -155,22 +161,20 @@ private:
 	CMovementRecorder& m_oRefMovementRecorder;
 
 };
+
 class CRBMovementRecorder
 {
 	NONCOPYABLE(CRBMovementRecorder);
 
 public:
+	CRBMovementRecorder(CMovementRecorder& recorder);
+	~CRBMovementRecorder();
 
-	CRBMovementRecorder(CMovementRecorder& recorder)
-		: m_oRefMovementRecorder(recorder) {}
-
-	void RB_Render() const;
-
+	void RB_Render(GfxViewParms* viewParms) const;
 private:
 	void RB_RenderOrigins() const;
 
 	CMovementRecorder& m_oRefMovementRecorder;
-
 };
 
 class CGuiMovementRecorder
@@ -219,8 +223,8 @@ public:
 	static std::unique_ptr<CMovementRecorder> Instance;
 
 	//for other modules that need to use the movement recorder
-	static void PushPlayback(std::vector<playback_cmd>&& cmds, const PlaybackInitializer& init);
-	static void PushPlayback(const std::vector<playback_cmd>& cmds, const PlaybackInitializer& init);
+	static void PushPlayback(std::vector<playback_cmd>&& cmds, const CPlaybackSettings& init);
+	static void PushPlayback(const std::vector<playback_cmd>& cmds, const CPlaybackSettings& init);
 	static bool GetActivePlayback() noexcept;
 
 #if(MOVEMENT_RECORDER)

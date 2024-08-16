@@ -1,55 +1,86 @@
+#include "bg/bg_pmove_simulation.hpp"
+
 #include "cg/cg_angles.hpp"
+#include "cg/cg_client.hpp"
 #include "cg/cg_local.hpp"
 #include "cg/cg_offsets.hpp"
+
+#include "com/com_channel.hpp"
+
+#include "dvar/dvar.hpp"
+
 #include "mr_playback.hpp"
+#include "mr_main.hpp"
+
 #include "net/nvar_table.hpp"
-#include <bg/bg_pmove_simulation.hpp>
-#include <cg/cg_client.hpp>
-#include <com/com_channel.hpp>
-#include <dvar/dvar.hpp>
+
 #include <ranges>
 
-CPlayback::CPlayback(std::vector<playback_cmd>&& _data, const PlaybackInitializer& init)
-	: cmds(std::forward<std::vector<playback_cmd>&&>(_data)) {
+CPlayback::CPlayback(std::vector<playback_cmd>&& _data, const CPlaybackSettings& init)
+	: cmds(std::forward<std::vector<playback_cmd>&&>(_data)), m_oSettings(init) {
 	m_iCmd = 0u;
 
 	
 
 	m_objHeader = { 
-		.m_iSpeed = init.g_speed, 
-		.m_bJumpSlowdownEnable = slowdown_t(init.jump_slowdownEnable)
+		.m_iSpeed = init.m_iGSpeed, 
+		.m_bJumpSlowdownEnable = init.m_eJumpSlowdownEnable
 	};
 
-	m_bIgnorePitch = init.ignorePitch;
-	m_bIgnoreWeapon = init.ignoreWeapon;
+	CStaticMovementRecorder::Instance->ClearDebugPlayback();
+
+	if (m_oSettings.m_bRenderExpectationVsReality) {
+		CStaticMovementRecorder::Instance->AddDebugPlayback(cmds);
+	}
 
 	EraseDeadFrames();
 
 }
-CPlayback::CPlayback(const std::vector<playback_cmd>& _data, const PlaybackInitializer& init)
-	: cmds(_data) {
+CPlayback::CPlayback(const std::vector<playback_cmd>& _data, const CPlaybackSettings& init)
+	: cmds(_data), m_oSettings(init) {
 	m_iCmd = 0u;
 
 	m_objHeader = {
-		.m_iSpeed = init.g_speed,
-		.m_bJumpSlowdownEnable = slowdown_t(init.jump_slowdownEnable)
+		.m_iSpeed = init.m_iGSpeed,
+		.m_bJumpSlowdownEnable = init.m_eJumpSlowdownEnable
 	};
 
-	m_bIgnorePitch = init.ignorePitch;
-	m_bIgnoreWeapon = init.ignoreWeapon;
+	CStaticMovementRecorder::Instance->ClearDebugPlayback();
+
+	if (m_oSettings.m_bRenderExpectationVsReality) {
+		CStaticMovementRecorder::Instance->AddDebugPlayback(cmds);
+	}
 
 	EraseDeadFrames();
 }
 CPlayback::~CPlayback() = default;
 void CPlayback::TryFixingTime([[maybe_unused]] usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 {
+	static int firstTime = cmd->serverTime;
+
+	if (!m_iCmd)
+		firstTime = m_iFirstServerTime;
+
+
+	auto ft = cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime;
+
 	cmd->serverTime = m_iFirstServerTime + (cmds[m_iCmd].serverTime - cmds.front().serverTime);
 	clients->serverTime = cmd->serverTime;
 
-	const int ft = cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime;
+
+
+	if (!ft) {
+		Com_Printf("^3Warning: playback where FPS is 0, replacing with 333fps...\n");
+		ft = 3;
+	}
 
 	//Com_Printf("^1%i\n", 1000 / ft);
-	Dvar_FindMalleableVar("com_maxfps")->current.integer = 1000 / ft;
+	if(m_oSettings.m_bSetComMaxfps)
+		Dvar_FindMalleableVar("com_maxfps")->current.integer = 1000 / ft;
+	
+	if (auto pb = CStaticMovementRecorder::Instance->GetDebugPlayback()) {
+		pb->m_oRealityPlayback.emplace_back(playback_cmd::FromPlayerState(&cgs->predictedPlayerState, cmd, oldcmd));
+	}
 
 }
 
@@ -57,7 +88,6 @@ void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 {
 	if (!IsPlayback())
 		return;
-
 
 	if (!m_iCmd) {
 
@@ -67,9 +97,10 @@ void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 		//if (cgs->predictedPlayerState.pm_time)
 		//	return;
 
-		m_iFirstServerTime = cmd->serverTime;
+		//m_iFirstServerTime = cmd->serverTime;
 		m_iFirstOldServerTime = oldcmd->serverTime;
 
+		m_iFirstServerTime = m_iFirstOldServerTime + (cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime);
 	}
 
 	auto ps = &cgs->predictedPlayerState;
@@ -77,7 +108,7 @@ void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 
 	for (auto i = 0; i < 3; i++) {
 
-		if (m_bIgnorePitch && i == PITCH)
+		if (m_oSettings.m_bIgnorePitch && i == PITCH)
 			continue;
 
 		const float angle_deltas = ps->delta_angles[i] + 360;
@@ -92,7 +123,7 @@ void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 
 	TryFixingTime(cmd, oldcmd);
 
-	if (!m_bIgnoreWeapon) {
+	if (!m_oSettings.m_bIgnoreWeapon) {
 		cmd->offHandIndex = icmd->offhand;
 		cmd->weapon = icmd->weapon;
 	}
@@ -100,7 +131,6 @@ void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 	cmd->forwardmove = icmd->forwardmove;
 	cmd->rightmove = icmd->rightmove;
 	cmd->buttons = icmd->buttons;
-
 	m_iCmd++;
 
 }
@@ -134,7 +164,7 @@ CPlayback::operator std::vector<playback_cmd>() { return cmds; }
 void CPlayback::EraseDeadFrames()
 {
 	const auto it = std::find_if(cmds.begin(), cmds.end(), [](const playback_cmd& cmd){
-		return cmd.forwardmove != 0 || cmd.rightmove != 0;
+		return fvec3(cmd.velocity) != 0.f || cmd.forwardmove != 0 || cmd.rightmove != 0;
 	});
 
 	if (it == cmds.begin() || it == cmds.end())
@@ -199,10 +229,26 @@ bool CPlaybackIOReader::Read()
 		return false;
 
 	m_objResult = std::make_unique<CPlayback>(cmds, 
-		PlaybackInitializer
-		{
-			.g_speed = header.m_iSpeed,
-			.jump_slowdownEnable = header.m_bJumpSlowdownEnable,
+		CPlaybackSettings{
+			.m_iGSpeed = header.m_iSpeed,
+			.m_eJumpSlowdownEnable = header.m_bJumpSlowdownEnable,
 		});
+
 	return true;
 }
+
+
+
+/***********************************************************************
+ > 
+***********************************************************************/
+CDebugPlayback::CDebugPlayback(const std::vector<playback_cmd>& cmds) : m_oExpectedPlayback(cmds) {
+
+
+
+}
+
+
+
+
+

@@ -8,17 +8,38 @@
 struct playback_cmd;
 struct playerState_s;
 struct usercmd_s;
-struct PlaybackInitializer;
+struct GfxViewParms;
+
 template<typename T>
 struct vec3;
 using fvec3 = vec3<float>;
 
+enum slowdown_t : std::int8_t
+{
+	disabled,
+	enabled,
+	both
+};
+
+struct CPlaybackSettings
+{
+	int m_iGSpeed = 190;
+	slowdown_t m_eJumpSlowdownEnable = disabled;
+	bool m_bIgnorePitch = false;
+	bool m_bIgnoreWeapon = false;
+	bool m_bIgnoreWASD = false;
+	bool m_bSetComMaxfps = true;
+	bool m_bRenderExpectationVsReality = false;
+};
+
 class CPlayback
 {
+	friend class CDebugPlayback;
 public:
-	CPlayback(std::vector<playback_cmd>&& data, const PlaybackInitializer& init);
-	explicit CPlayback(const std::vector<playback_cmd>& _data, const PlaybackInitializer& init);
+	CPlayback(std::vector<playback_cmd>&& data, const CPlaybackSettings& init);
+	explicit CPlayback(const std::vector<playback_cmd>& _data, const CPlaybackSettings& init);
 	~CPlayback();
+
 	void DoPlayback(usercmd_s* cmd, usercmd_s* oldcmd);
 	bool IsPlayback() const noexcept;
 	void StopPlayback();
@@ -31,46 +52,54 @@ public:
 	fvec3 GetOrigin() const noexcept;
 	fvec3 GetAngles() const noexcept;
 
-	__forceinline void IgnorePitch(bool ignore = true) const noexcept {
-		m_bIgnorePitch = ignore;
-	}
-	__forceinline void IgnoreWeapon(bool ignore = true) const noexcept {
-		m_bIgnoreWeapon = ignore;
-	}
+	__forceinline constexpr void IgnorePitch(bool ignore = true) const noexcept { m_oSettings.m_bIgnorePitch = ignore; }
+	__forceinline constexpr void IgnoreWeapon(bool ignore = true) const noexcept { m_oSettings.m_bIgnoreWeapon = ignore; }
+	__forceinline constexpr void IgnoreWASD(bool ignore = true) const noexcept { m_oSettings.m_bIgnoreWASD = ignore; }
+	__forceinline constexpr bool bIgnoreWASD() const noexcept { return m_oSettings.m_bIgnoreWASD; }
+
 	operator std::vector<playback_cmd>();
 
 	friend class CPlaybackIOWriter;
 	friend class CPlaybackIOReader;
 	friend class CPlaybackGui;
 
-	std::vector<playback_cmd> cmds;
+	friend void UpdatePlaybackQueue(usercmd_s* cmd, usercmd_s* oldcmd);
 
-	enum slowdown_t : std::int8_t
-	{
-		disabled,
-		enabled,
-		both
-	};
+	std::vector<playback_cmd> cmds;
 
 private:
 	void EraseDeadFrames();
 	void TryFixingTime(usercmd_s* cmd, usercmd_s* oldcmd);
 
-
-#pragma pack(push, 1)
-	struct Header
-	{
-		int m_iSpeed = 190;
-		slowdown_t m_bJumpSlowdownEnable = disabled;
-	}m_objHeader;
-#pragma pack(pop)
-
 	std::size_t m_iCmd = 0u;
 	std::int32_t m_iFirstServerTime = 0;
 	std::int32_t m_iFirstOldServerTime = 0;
 
-	mutable bool m_bIgnorePitch = false;
-	mutable bool m_bIgnoreWeapon = false;
+	mutable CPlaybackSettings m_oSettings;
+
+	#pragma pack(push, 1)
+		struct Header
+		{
+			int m_iSpeed = 190;
+			slowdown_t m_bJumpSlowdownEnable = disabled;
+		}m_objHeader;
+	#pragma pack(pop)
+
+};
+
+class CDebugPlayback
+{
+public:
+
+	CDebugPlayback(const std::vector<playback_cmd>& cmds);
+	void RB_Render(GfxViewParms* viewParms) const;
+	void CG_Render() const;
+
+
+	std::vector<playback_cmd> m_oExpectedPlayback;
+	std::vector<playback_cmd> m_oRealityPlayback;
+
+private:
 };
 
 class CPlaybackGui

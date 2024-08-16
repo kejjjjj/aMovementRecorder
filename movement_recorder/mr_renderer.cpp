@@ -1,23 +1,34 @@
-#include "movement_recorder/mr_main.hpp"
-#include <r/r_drawtools.hpp>
-#include <com/com_channel.hpp>
-#include <net/nvar_table.hpp>
-#include "movement_recorder/mr_segmenter.hpp"
-#include "movement_recorder/mr_record.hpp"
-#include "movement_recorder/mr_playback.hpp"
-#include <cg/cg_local.hpp>
-#include <cg/cg_offsets.hpp>
-#include <bg/bg_pmove_simulation.hpp>
-#include <cg/cg_angles.hpp>
-#include <windows.h>
-#include <cl/cl_utils.hpp>
-#include "cl/cl_move.hpp"
-#include <utils/hook.hpp>
-#include <geo/geo_shapes.hpp>
+#include "bg/bg_pmove_simulation.hpp"
 
+#include "cg/cg_angles.hpp"
+#include "cg/cg_local.hpp"
+#include "cg/cg_offsets.hpp"
+
+#include "cl/cl_move.hpp"
+#include "cl/cl_utils.hpp"
+
+#include "com/com_channel.hpp"
+
+#include "geo/geo_shapes.hpp"
+
+#include "movement_recorder/mr_main.hpp"
+#include "movement_recorder/mr_playback.hpp"
+#include "movement_recorder/mr_record.hpp"
+#include "movement_recorder/mr_segmenter.hpp"
+
+#include "net/nvar_table.hpp"
+
+#include "r/r_drawtools.hpp"
 #include "r/backend/rb_endscene.hpp"
-#include <sys/sys_main.hpp>
-#include <r/r_utils.hpp>
+#include "r/r_utils.hpp"
+
+#include "sys/sys_main.hpp"
+
+#include "utils/hook.hpp"
+
+
+#include <windows.h>
+
 
 #define RGBA(r,g,b,a) vec4_t{r,g,b,a}
 
@@ -137,16 +148,25 @@ void RB_DrawDebug([[maybe_unused]]GfxViewParms* viewParms)
 #endif
 
 
-
+#if(MOVEMENT_RECORDER)
 	auto renderer = CRBMovementRecorder(*CStaticMovementRecorder::Instance);
-	renderer.RB_Render();
+	renderer.RB_Render(viewParms);
+#endif
+
+
 
 }
+CRBMovementRecorder::CRBMovementRecorder(CMovementRecorder& recorder)
+	: m_oRefMovementRecorder(recorder) {}
+CRBMovementRecorder::~CRBMovementRecorder() = default;
 
-void CRBMovementRecorder::RB_Render() const
+void CRBMovementRecorder::RB_Render(GfxViewParms* viewParms) const
 {
 	if (NVar_FindMalleableVar<bool>("Show Origins")->Get())
 		RB_RenderOrigins();
+
+	if (m_oRefMovementRecorder.m_pDebugPlayback)
+		m_oRefMovementRecorder.m_pDebugPlayback->RB_Render(viewParms);
 
 }
 
@@ -177,3 +197,4 @@ void CRBMovementRecorder::RB_RenderOrigins() const
 	}
 
 }
+

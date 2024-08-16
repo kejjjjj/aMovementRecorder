@@ -66,7 +66,7 @@ void CMovementRecorder::UpdatePlaybackQueue(usercmd_s* cmd, [[maybe_unused]] use
 	if (!PlaybackActive)
 		return;
 
-	if (ps->pm_type != PM_NORMAL || WASD_PRESSED())
+	if (ps->pm_type != PM_NORMAL || WASD_PRESSED() && !PlaybackActive->bIgnoreWASD())
 		PlaybackActive->StopPlayback();
 
 	PlaybackActive->DoPlayback(cmd, oldcmd);
@@ -135,11 +135,11 @@ void CMovementRecorder::SelectPlayback()
 	if (PendingRecording) {
 		PushPlayback(CPlayback(
 			std::vector<playback_cmd>(*PendingRecording),
-			{ 
-				.g_speed = CG_GetSpeed(&cgs->predictedPlayerState),
-				.jump_slowdownEnable = Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
-				.ignorePitch = 	NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
-				.ignoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get(),
+			{
+				.m_iGSpeed = CG_GetSpeed(&cgs->predictedPlayerState),
+				.m_eJumpSlowdownEnable = (slowdown_t)Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
+				.m_bIgnorePitch = 	NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+				.m_bIgnoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get(),
 
 			}), 
 
@@ -346,10 +346,10 @@ void CStaticMovementRecorder::Simulation()
 
 	const CPlayback playback(*Instance->PendingRecording,
 		{
-			.g_speed = CG_GetSpeed(&cgs->predictedPlayerState),
-			.jump_slowdownEnable = Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
-			.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
-			.ignoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get()
+			.m_iGSpeed = CG_GetSpeed(&cgs->predictedPlayerState),
+			.m_eJumpSlowdownEnable = (slowdown_t)Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
+			.m_bIgnorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+			.m_bIgnoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get(),
 
 		});
 
@@ -388,13 +388,24 @@ void CMovementRecorder::PushPlayback(const CPlayback& playback)
 {
 	if (playback.cmds.empty())
 		return;
-
+	
 	PlaybackQueue.emplace(std::make_unique<CPlayback>(playback));
 }
 #endif
 
 
-
+void CMovementRecorder::AddDebugPlayback(const std::vector<playback_cmd>& playback)
+{
+	m_pDebugPlayback = std::make_unique<CDebugPlayback>(playback);
+}
+CDebugPlayback* CMovementRecorder::GetDebugPlayback() const noexcept
+{
+	return m_pDebugPlayback ? m_pDebugPlayback.get() : nullptr;
+}
+void CMovementRecorder::ClearDebugPlayback()
+{
+	m_pDebugPlayback = 0;
+}
 CPlayback* CMovementRecorder::GetActivePlayback() {
 
 #if(MOVEMENT_RECORDER)
@@ -422,11 +433,11 @@ CPlayback* CMovementRecorder::GetActivePlayback() const {
 
 }
 
-void CStaticMovementRecorder::PushPlayback(std::vector<playback_cmd>&& cmds, const PlaybackInitializer& init) {
+void CStaticMovementRecorder::PushPlayback(std::vector<playback_cmd>&& cmds, const CPlaybackSettings& init) {
 	if(Instance)
 		Instance->PushPlayback(CPlayback(std::move(cmds), init));
 }
-void CStaticMovementRecorder::PushPlayback(const std::vector<playback_cmd>& cmds, const PlaybackInitializer& init) {
+void CStaticMovementRecorder::PushPlayback(const std::vector<playback_cmd>& cmds, const CPlaybackSettings& init) {
 	if (Instance)
 		Instance->PushPlayback(CPlayback(cmds, init));
 }

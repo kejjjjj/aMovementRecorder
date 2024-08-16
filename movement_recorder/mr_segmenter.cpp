@@ -73,9 +73,11 @@ public:
 
 		return std::optional<CPlayback>(CPlayback(newdata, 
 			{
-				.g_speed = CG_GetSpeed(&cgs->predictedPlayerState),
-				.jump_slowdownEnable = CG_HasJumpSlowdown(),
-				.ignorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+				.m_iGSpeed = CG_GetSpeed(&cgs->predictedPlayerState),
+				.m_eJumpSlowdownEnable = (slowdown_t)Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
+				.m_bIgnorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+				.m_bIgnoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get(),
+
 			}));
 	}
 	inline bool ResultExists() const noexcept {

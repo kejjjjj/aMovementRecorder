@@ -31,7 +31,7 @@ bool CPlaybackGui::Render()
 
 	ImGui::SetNextItemWidth(100);
 	if (ImGui::Combo("Jump Slowdown", &m_iCurrentSlowdown, arr, 3)) {
-		m_refOwner.m_objHeader.m_bJumpSlowdownEnable = CPlayback::slowdown_t(m_iCurrentSlowdown);
+		m_refOwner.m_objHeader.m_bJumpSlowdownEnable = slowdown_t(m_iCurrentSlowdown);
 		m_uChanges++;
 	}
 	ImGui::Tooltip("Choose whether this jump can be performed with or without jump slowdown (or with both?)");
