@@ -62,8 +62,13 @@ bool CPlaybackGui::Render()
 
 void CGuiMovementRecorder::RenderLevelRecordings()
 {
-	if (CL_ConnectionState() != CA_ACTIVE)
+	if (CL_ConnectionState() != CA_ACTIVE) {
+		if (m_pItem) {
+			m_pItem.reset();
+			m_uSelectedIndex = 0;
+		}
 		return;
+	}
 
 	const auto window_length = ImGui::GetWindowSize().x - ImGui::GetCursorPos().x - ImGui::GetStyle().FramePadding.x;
 	ImGui::BeginChild("LevelPlaybacks", { window_length, static_cast<float>(adjust_from_480(480 / 4)) });
