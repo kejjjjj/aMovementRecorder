@@ -68,13 +68,16 @@ public:
 	std::vector<playback_cmd> cmds;
 
 private:
+	std::int32_t GetCurrentTimeFromIndex(const std::int32_t cmdIndex) const;
+	void EditUserCmd(usercmd_s* cmd, const std::int32_t index) const;
+
 	void EraseDeadFrames();
 	void TryFixingTime(usercmd_s* cmd, usercmd_s* oldcmd);
 
 	std::size_t m_iCmd = 0u;
 	std::int32_t m_iFirstServerTime = 0;
 	std::int32_t m_iFirstOldServerTime = 0;
-
+	std::int32_t m_iNextTime = 0;
 	mutable CPlaybackSettings m_oSettings;
 
 	#pragma pack(push, 1)

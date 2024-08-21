@@ -1,16 +1,21 @@
 #include "main.hpp"
-#include "r_movementrecorder.hpp"
-#include "net/nvar_table.hpp"
 #include "movement_recorder/mr_main.hpp"
-#include <r/gui/r_main_gui.hpp>
-#include <iostream>
-#include <shared/sv_shared.hpp>
-
+#include "net/im_defaults.hpp"
+#include "net/nvar_table.hpp"
+#include "r/gui/r_main_gui.hpp"
+#include "r_movementrecorder.hpp"
+#include "shared/sv_shared.hpp"
 
 CMovementRecorderWindow::CMovementRecorderWindow(const std::string& name)
 	: CGuiElement(name) {
 
+	m_oKeybinds.emplace_back(std::make_unique<ImKeybind>("id_mr_record", "mr_record", "toggle recording"));
+	m_oKeybinds.emplace_back(std::make_unique<ImKeybind>("id_mr_playback", "mr_playback", "start playback"));
+	m_oKeybinds.emplace_back(std::make_unique<ImKeybind>("id_mr_playback", "mr_clear", "clear temporary recording (unsaved recording)"));
+
+
 }
+CMovementRecorderWindow::~CMovementRecorderWindow() = default;
 
 void CMovementRecorderWindow::Render()
 {
@@ -26,23 +31,29 @@ void CMovementRecorderWindow::Render()
 
 #endif
 
-	const auto table = NVarTables::Get(NVAR_TABLE_NAME);
-
-	if (!table)
-		return;
-
-	for (const auto& nvar : table->GetSorted()) {
-
-		if (nvar && nvar->IsImNVar()) {
-			std::string _v_ = nvar->GetName() + "_menu";
-			ImGui::BeginChild(_v_.c_str(), ImVec2(0, 0), ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Border);
-			nvar->RenderImNVar();
-			ImGui::EndChild();
+	if (m_oKeybinds.size()) {
+		ImGui::Text("Keybinds");
+		for (auto& keybind : m_oKeybinds) {
+			keybind->Render();
 		}
 
+		ImGui::Text("use mr_save <filename> to save a temporary recording");
+		ImGui::Text("use mr_teleportTo <filename> to teleport to the playback's origin");
+
+		ImGui::Separator();
+		ImGui::NewLine();
 	}
 
-	ImGui::Separator();
+	ImGui::BeginGroup();
+	GUI_RenderNVars();
+	ImGui::EndGroup();
+
+
+	//ImGui::Separator();
+
+	ImGui::SameLine();
+
+	ImGui::BeginGroup();
 
 	const auto window_length = ImGui::GetWindowSize().x - ImGui::GetCursorPos().x - ImGui::GetStyle().FramePadding.x;
 
@@ -50,6 +61,7 @@ void CMovementRecorderWindow::Render()
 		ImVec2(window_length, 0),
 		ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Border);
 		
+
 	if (ImGui::BeginTabBar("playbacks")) {
 
 		if (ImGui::BeginTabItem("Local")) {
@@ -69,9 +81,9 @@ void CMovementRecorderWindow::Render()
 		ImGui::EndTabBar();
 	}
 
-
 	ImGui::EndChild();
 
+	ImGui::EndGroup();
 
 }
 

@@ -2,11 +2,13 @@
 
 #include "r/gui/r_gui.hpp"
 
+struct ImKeybind;
+
 class CMovementRecorderWindow : public CGuiElement
 {
 public:
 	CMovementRecorderWindow(const std::string& id);
-	~CMovementRecorderWindow() = default;
+	~CMovementRecorderWindow();
 
 	void* GetRender() override {
 		union {
@@ -20,7 +22,7 @@ public:
 	void Render() override;
 
 private:
-
+	std::vector<std::unique_ptr<ImKeybind>> m_oKeybinds;
 
 	size_t m_uSelectedPlayback = {};
 };

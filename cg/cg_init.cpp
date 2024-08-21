@@ -30,7 +30,10 @@ return 0;
 static void NVar_Setup(NVarTable* table)
 {
     table->AddImNvar<bool, ImCheckbox>("Show Origins", true, NVar_ArithmeticToString<bool>)
-        ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, "show where saved playbacks start from");
+        ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, 
+            "show where saved playbacks start from\n"
+            "note: if the position is being rendered in green, it means that the playback is more likely to stay synced"
+        );
 
     table->AddImNvar<bool, ImCheckbox>("Status Text", true, NVar_ArithmeticToString<bool>)
         ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, "debugging");
@@ -38,7 +41,7 @@ static void NVar_Setup(NVarTable* table)
     table->AddImNvar<bool, ImCheckbox>("Segmenting", false, NVar_ArithmeticToString<bool>)
         ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, "continue recording after pressing WASD during playback");
 
-    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, 0.f, 1.f, "%.6f")
+    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, nvar_saved, 0.f, 1.f, "%.6f")
     ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, 
         "how close to the origin you need to be before the playback starts\n"
         "the closer you get, the better the playback will be");

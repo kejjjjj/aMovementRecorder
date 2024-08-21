@@ -9,6 +9,8 @@
 
 #include "com/com_channel.hpp"
 
+#include "dvar/dvar.hpp"
+
 #include "geo/geo_shapes.hpp"
 
 #include "movement_recorder/mr_main.hpp"
@@ -25,6 +27,7 @@
 #include "sys/sys_main.hpp"
 
 #include "utils/hook.hpp"
+#include "utils/functions.hpp"
 
 
 #include <windows.h>
@@ -50,10 +53,6 @@ void CRMovementRecorder::CG_Render() const
 
 	if (NVar_FindMalleableVar<bool>("Status Text")->Get()) {
 		CG_RenderPrecision();
-
-		char buff[24];
-		sprintf_s(buff, "%.6f", (cgs->predictedPlayerState.delta_angles[YAW]));
-		CG_RenderStatusText(buff, RGBA(1, 1, 1, 1), 0, -30.f);
 	}
 
 	//this is useful to have

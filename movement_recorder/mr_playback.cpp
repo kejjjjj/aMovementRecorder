@@ -54,74 +54,41 @@ CPlayback::CPlayback(const std::vector<playback_cmd>& _data, const CPlaybackSett
 	EraseDeadFrames();
 }
 CPlayback::~CPlayback() = default;
-void CPlayback::TryFixingTime([[maybe_unused]] usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
+
+std::int32_t CPlayback::GetCurrentTimeFromIndex(const std::int32_t cmdIndex) const
 {
-	static int firstTime = cmd->serverTime;
-
-	if (!m_iCmd)
-		firstTime = m_iFirstServerTime;
-
-
-	auto ft = cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime;
-
-	cmd->serverTime = m_iFirstServerTime + (cmds[m_iCmd].serverTime - cmds.front().serverTime);
-	clients->serverTime = cmd->serverTime;
-
-
+	return m_iFirstServerTime + (cmds[cmdIndex].serverTime - cmds.front().serverTime);
+}
+void CPlayback::EditUserCmd(usercmd_s* cmd, const std::int32_t index) const
+{
+	auto ps = &cgs->predictedPlayerState;
+	auto ft = cmds[index].serverTime - cmds[index].oldTime;
 
 	if (!ft) {
-		Com_Printf("^3Warning: playback where FPS is 0, replacing with 333fps...\n");
+		Com_Printf("^3Warning: playback with 0fps, replacing with 333fps\n");
 		ft = 3;
 	}
 
-	//Com_Printf("^1%i\n", 1000 / ft);
-	if(m_oSettings.m_bSetComMaxfps)
+	if (m_oSettings.m_bSetComMaxfps)
 		Dvar_FindMalleableVar("com_maxfps")->current.integer = 1000 / ft;
+
+	cmd->serverTime = GetCurrentTimeFromIndex(index);
+
+	auto icmd = &cmds[index];
+
+	const auto iAngleDeltas = fvec3(ps->delta_angles).to_short();
+	const auto expectation = icmd->cmd_angles + icmd->delta_angles.to_short();
+	const auto netAng = expectation - iAngleDeltas;
 	
-	if (auto pb = CStaticMovementRecorder::Instance->GetDebugPlayback()) {
-		pb->m_oRealityPlayback.emplace_back(playback_cmd::FromPlayerState(&cgs->predictedPlayerState, cmd, oldcmd));
+	if (m_oSettings.m_bIgnorePitch) {
+		cmd->angles[YAW] = netAng.y;
+		clients->viewangles[YAW] = SHORT2ANGLE(netAng.y);
+
 	}
-
-}
-
-void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
-{
-	if (!IsPlayback())
-		return;
-
-	if (!m_iCmd) {
-
-		//any slowdown is going to cause issues so just don't start
-		
-		//UPDATE: sometimes this causes serious issues with lineups!
-		//if (cgs->predictedPlayerState.pm_time)
-		//	return;
-
-		//m_iFirstServerTime = cmd->serverTime;
-		m_iFirstOldServerTime = oldcmd->serverTime;
-
-		m_iFirstServerTime = m_iFirstOldServerTime + (cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime);
+	else {
+		(fvec3&)clients->viewangles = netAng.from_short();
+		(ivec3&)cmd->angles = netAng;
 	}
-
-	auto ps = &cgs->predictedPlayerState;
-	auto icmd = &cmds[m_iCmd];
-
-	for (auto i = 0; i < 3; i++) {
-
-		if (m_oSettings.m_bIgnorePitch && i == PITCH)
-			continue;
-
-		const float angle_deltas = ps->delta_angles[i] + 360;
-		const auto i_angle_deltas = ANGLE2SHORT(angle_deltas);
-		const auto iexpectation = short(icmd->cmd_angles[i] + ANGLE2SHORT(icmd->delta_angles[i]));
-
-		const auto netAng = iexpectation - i_angle_deltas;
-		cmd->angles[i] = netAng;
-		clients->viewangles[i] = SHORT2ANGLE(netAng);
-	}
-
-
-	TryFixingTime(cmd, oldcmd);
 
 	if (!m_oSettings.m_bIgnoreWeapon) {
 		cmd->offHandIndex = icmd->offhand;
@@ -131,7 +98,55 @@ void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
 	cmd->forwardmove = icmd->forwardmove;
 	cmd->rightmove = icmd->rightmove;
 	cmd->buttons = icmd->buttons;
-	m_iCmd++;
+
+}
+void CPlayback::TryFixingTime(usercmd_s* currentCmd, [[maybe_unused]]usercmd_s* uoldcmd)
+{
+
+	auto numUnsent = 0u;
+	auto targetTime = GetCurrentTimeFromIndex(m_iCmd);
+
+	while (targetTime <= currentCmd->serverTime && (m_iCmd + numUnsent < cmds.size()) ) {
+		numUnsent++;
+		targetTime = GetCurrentTimeFromIndex(m_iCmd + numUnsent);
+	}
+
+
+	if (numUnsent > 0) {
+		EditUserCmd(currentCmd, m_iCmd++);
+
+		if (numUnsent > 1) {
+			for ([[maybe_unused]] auto i : std::views::iota(2u, numUnsent)) {
+				EditUserCmd(&clients->cmds[++clients->cmdNumber & 0x7F], m_iCmd++);
+			}
+		}
+	} else {
+		--clients->cmdNumber;
+	}
+
+	if (auto pb = CStaticMovementRecorder::Instance->GetDebugPlayback()) {
+		pb->m_oRealityPlayback.emplace_back(playback_cmd::FromPlayerState(&cgs->predictedPlayerState, currentCmd, uoldcmd));
+	}
+
+
+}
+
+void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
+{
+	if (!IsPlayback())
+		return;
+
+
+	if (!m_iCmd) {
+		m_iFirstServerTime = cmd->serverTime;
+	}
+
+	if (m_iCmd == cmds.size() - 1u) {
+		return EditUserCmd(cmd, m_iCmd++);
+	}
+
+	TryFixingTime(cmd, oldcmd);
+
 
 }
 playback_cmd* CPlayback::GetIterator() 
