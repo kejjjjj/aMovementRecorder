@@ -29,11 +29,11 @@ CMovementRecorder::CMovementRecorder()
 }
 
 CMovementRecorder::~CMovementRecorder() = default;
-void CMovementRecorder::Update([[maybe_unused]]playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd)
+void CMovementRecorder::Update([[maybe_unused]]const playerState_s* ps, usercmd_s* cmd, const  usercmd_s* oldcmd)
 {
 
 #if(MOVEMENT_RECORDER)
-	UpdateLineup(cmd, oldcmd);
+	UpdateLineup(ps, cmd, oldcmd);
 	UpdatePlaybackQueue(cmd, oldcmd);
 
 	//Moved these below so that the recorder&segmenter gets the newest cmds
@@ -41,7 +41,7 @@ void CMovementRecorder::Update([[maybe_unused]]playerState_s* ps, usercmd_s* cmd
 		Recorder->Record(ps, cmd, oldcmd);
 	}
 
-	if (Segmenter && !Segmenter->Update(cmd, oldcmd, ps)) {
+	if (Segmenter && !Segmenter->Update(ps, cmd, oldcmd)) {
 		//this means that the playback ended without any user inputs
 		Segmenter.reset();
 
@@ -51,7 +51,7 @@ void CMovementRecorder::Update([[maybe_unused]]playerState_s* ps, usercmd_s* cmd
 #endif
 
 }
-void CMovementRecorder::UpdatePlaybackQueue(usercmd_s* cmd, [[maybe_unused]] usercmd_s* oldcmd)
+void CMovementRecorder::UpdatePlaybackQueue(usercmd_s* cmd, const usercmd_s* oldcmd)
 {
 	if (PlaybackQueue.empty())
 		return;
@@ -200,7 +200,7 @@ void CMovementRecorder::PushPlayback(CPlayback&& playback, is_segment_t segmenti
 		return;
 
 	if (do_lineup == lineup) {
-		Lineup = std::make_unique<CLineupPlayback>(playback, playback.GetOrigin(), playback.GetAngles());
+		Lineup = std::make_unique<CLineupPlayback>(&cgs->predictedPlayerState, playback, playback.GetOrigin(), playback.GetAngles());
 		return;
 	}
 
@@ -217,7 +217,7 @@ void CMovementRecorder::PushPlayback(const CPlayback& playback, is_segment_t seg
 		return;
 
 	if (do_lineup == lineup) {
-		Lineup = std::make_unique<CLineupPlayback>(playback, playback.GetOrigin(), playback.GetAngles());
+		Lineup = std::make_unique<CLineupPlayback>(&cgs->predictedPlayerState, playback, playback.GetOrigin(), playback.GetAngles());
 		return;
 	}
 
@@ -228,12 +228,12 @@ void CMovementRecorder::PushPlayback(const CPlayback& playback, is_segment_t seg
 
 	PlaybackQueue.emplace(std::make_unique<CPlayback>(playback));
 }
-void CMovementRecorder::UpdateLineup(usercmd_s* cmd, usercmd_s* oldcmd)
+void CMovementRecorder::UpdateLineup(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd)
 {
 	if (!Lineup)
 		return;
 
-	if (!Lineup->Update(cmd, oldcmd)) {
+	if (!Lineup->Update(ps, cmd, oldcmd)) {
 		const is_segment_t segmenting_allowed = static_cast<is_segment_t>(NVar_FindMalleableVar<bool>("Segmenting")->Get());
 
 		if (Lineup->Finished()) {

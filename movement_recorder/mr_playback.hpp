@@ -29,6 +29,7 @@ struct CPlaybackSettings
 	bool m_bIgnoreWeapon = false;
 	bool m_bIgnoreWASD = false;
 	bool m_bSetComMaxfps = true;
+	bool m_bNoLag = false; 
 	bool m_bRenderExpectationVsReality = false;
 };
 
@@ -40,7 +41,7 @@ public:
 	explicit CPlayback(const std::vector<playback_cmd>& _data, const CPlaybackSettings& init);
 	~CPlayback();
 
-	void DoPlayback(usercmd_s* cmd, usercmd_s* oldcmd);
+	void DoPlayback(usercmd_s* cmd, const usercmd_s* oldcmd);
 	bool IsPlayback() const noexcept;
 	void StopPlayback();
 
@@ -72,12 +73,11 @@ private:
 	void EditUserCmd(usercmd_s* cmd, const std::int32_t index) const;
 
 	void EraseDeadFrames();
-	void TryFixingTime(usercmd_s* cmd, usercmd_s* oldcmd);
+	void TryFixingTime(usercmd_s* cmd, const usercmd_s* oldcmd);
 
 	std::size_t m_iCmd = 0u;
 	std::int32_t m_iFirstServerTime = 0;
-	std::int32_t m_iFirstOldServerTime = 0;
-	std::int32_t m_iNextTime = 0;
+
 	mutable CPlaybackSettings m_oSettings;
 
 	#pragma pack(push, 1)

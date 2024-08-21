@@ -22,7 +22,7 @@ public:
 	{
 	}
 
-	success_t Update(usercmd_s* cmd, usercmd_s* oldcmd, playerState_s* ps)
+	success_t Update(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd)
 	{
 
 		if (!m_oRecorder && WASD_PRESSED()) {
@@ -101,9 +101,9 @@ CPlaybackSegmenter::CPlaybackSegmenter(const CPlayback& source)
 }
 CPlaybackSegmenter::~CPlaybackSegmenter() = default;
 
-success_t CPlaybackSegmenter::Update(usercmd_s* cmd, usercmd_s* oldcmd, playerState_s* ps)
+success_t CPlaybackSegmenter::Update(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd)
 {
-	return m_oImpl->Update(cmd, oldcmd, ps);
+	return m_oImpl->Update(ps, cmd, oldcmd);
 }
 std::optional<CPlayback> CPlaybackSegmenter::GetResult() const
 {

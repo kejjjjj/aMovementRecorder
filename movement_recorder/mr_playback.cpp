@@ -98,9 +98,8 @@ void CPlayback::EditUserCmd(usercmd_s* cmd, const std::int32_t index) const
 	cmd->forwardmove = icmd->forwardmove;
 	cmd->rightmove = icmd->rightmove;
 	cmd->buttons = icmd->buttons;
-
 }
-void CPlayback::TryFixingTime(usercmd_s* currentCmd, [[maybe_unused]]usercmd_s* uoldcmd)
+void CPlayback::TryFixingTime(usercmd_s* currentCmd, const usercmd_s* uoldcmd)
 {
 
 	auto numUnsent = 0u;
@@ -121,7 +120,10 @@ void CPlayback::TryFixingTime(usercmd_s* currentCmd, [[maybe_unused]]usercmd_s* 
 			}
 		}
 	} else {
-		--clients->cmdNumber;
+		if(m_oSettings.m_bNoLag)
+			EditUserCmd(currentCmd, m_iCmd++);
+		else
+			--clients->cmdNumber;
 	}
 
 	if (auto pb = CStaticMovementRecorder::Instance->GetDebugPlayback()) {
@@ -131,18 +133,14 @@ void CPlayback::TryFixingTime(usercmd_s* currentCmd, [[maybe_unused]]usercmd_s* 
 
 }
 
-void CPlayback::DoPlayback(usercmd_s* cmd, [[maybe_unused]]usercmd_s* oldcmd)
+void CPlayback::DoPlayback(usercmd_s* cmd, const usercmd_s* oldcmd)
 {
 	if (!IsPlayback())
 		return;
 
 
 	if (!m_iCmd) {
-		m_iFirstServerTime = cmd->serverTime;
-	}
-
-	if (m_iCmd == cmds.size() - 1u) {
-		return EditUserCmd(cmd, m_iCmd++);
+		m_iFirstServerTime = oldcmd->serverTime + (cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime);
 	}
 
 	TryFixingTime(cmd, oldcmd);

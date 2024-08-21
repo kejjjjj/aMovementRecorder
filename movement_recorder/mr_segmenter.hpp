@@ -19,7 +19,7 @@ public:
 	~CPlaybackSegmenter();
 
 	//\return false if everything is finished
-	success_t Update(usercmd_s* cmd, usercmd_s* oldcmd, playerState_s* ps);
+	success_t Update(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd);
 	bool ResultExists() const noexcept;
 	std::optional<CPlayback> GetResult() const;
 	CPlayback* GetPlayback();

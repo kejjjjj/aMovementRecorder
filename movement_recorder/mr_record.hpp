@@ -32,7 +32,7 @@ public:
 	CRecorder() = default;
 	explicit CRecorder(bool start_from_movement, int start_timer = 0) : m_bStartFromMove(start_from_movement), m_iStartTimer(start_timer){}
 	~CRecorder();
-	void Record(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) noexcept;
+	void Record(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd) noexcept;
 
 	inline bool IsWaiting() const noexcept { return m_iStartTimer > 0; }
 

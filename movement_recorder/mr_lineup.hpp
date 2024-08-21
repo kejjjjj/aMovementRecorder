@@ -8,13 +8,14 @@ struct usercmd_s;
 struct playerState_s;
 struct playback_cmd;
 class CPlayback;
+struct clientInput_t;
 
 class CLineup
 {
 public:
 	NONCOPYABLE(CLineup);
 
-	CLineup(const fvec3& destination, const fvec3& destination_angles, float lineup_distance);
+	CLineup(const playerState_s* ps, const fvec3& destination, const fvec3& destination_angles, float lineup_distance);
 
 	enum State : std::int8_t
 	{
@@ -23,7 +24,7 @@ public:
 		finished
 	};
 
-	bool Update(usercmd_s* cmd, usercmd_s* oldcmd) noexcept;
+	bool Update(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd) noexcept;
 
 	constexpr bool Finished() const noexcept { return m_eState == finished; }
 	constexpr bool GaveUp() const noexcept { return m_eState == gave_up; }
@@ -31,14 +32,15 @@ public:
 
 private:
 
-	void UpdateViewangles(usercmd_s* cmd);
-	void UpdateOrigin();
+	void UpdateViewangles(const playerState_s* ps, usercmd_s* cmd);
+	void UpdateOrigin(const playerState_s* ps);
 	
-	void MoveCloser(usercmd_s* cmd, usercmd_s* oldcmd);
+	void MoveCloser(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd);
 
-	void CreatePlayback(usercmd_s* cmd, usercmd_s* oldcmd) const;
-	bool CanPathfind() const noexcept;
+	void CreatePlayback(const playerState_s* ps, usercmd_s* cmd) const;
+	bool CanPathfind(const playerState_s* ps) const noexcept;
 
+	clientInput_t GetNextDirection(const playerState_s* ps, const usercmd_s* cmd, const usercmd_s* oldcmd) const;
 
 	fvec3 m_vecDestination;
 	fvec3 m_vecDestinationAngles;
@@ -65,7 +67,7 @@ class CLineupPlayback : public CLineup
 public:
 	NONCOPYABLE(CLineupPlayback);
 
-	CLineupPlayback(const CPlayback& playback, const fvec3& destination, const fvec3& destination_angles);
+	CLineupPlayback(const playerState_s* ps, const CPlayback& playback, const fvec3& destination, const fvec3& destination_angles);
 	CPlayback& GetPlayback();
 
 private:

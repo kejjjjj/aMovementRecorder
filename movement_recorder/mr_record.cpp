@@ -13,7 +13,7 @@
 #include <ranges>
 
 CRecorder::~CRecorder() = default;
-void CRecorder::Record(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd) noexcept
+void CRecorder::Record(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd) noexcept
 {
 	if (IsWaiting()) {
 		m_iStartTimer = std::clamp(m_iStartTimer - (cmd->serverTime - oldcmd->serverTime), 0, m_iStartTimer);

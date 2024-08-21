@@ -66,7 +66,7 @@ class CMovementRecorder
 public:
 	CMovementRecorder();
 	virtual ~CMovementRecorder();
-	void Update(playerState_s* ps, usercmd_s* cmd, usercmd_s* oldcmd);
+	void Update(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd);
 
 #if(MOVEMENT_RECORDER)
 
@@ -132,10 +132,10 @@ protected:
 
 private:
 #if(MOVEMENT_RECORDER)
-	void UpdateLineup(usercmd_s* cmd, usercmd_s* oldcmd);
+	void UpdateLineup(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd);
 #endif
 
-	void UpdatePlaybackQueue(usercmd_s* cmd, usercmd_s* oldcmd);
+	void UpdatePlaybackQueue(usercmd_s* cmd, const usercmd_s* oldcmd);
 
 };
 
