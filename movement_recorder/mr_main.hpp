@@ -206,6 +206,7 @@ public:
 	
 	//pushes the file to LevelPlaybacks
 	[[maybe_unused]] bool LoadFromDisk(const std::string& name);
+	[[maybe_unused]] bool DeleteFileFromDisk(const std::string& name);
 
 
 	[[maybe_unused]] bool RefreshAllLevelPlaybacks();

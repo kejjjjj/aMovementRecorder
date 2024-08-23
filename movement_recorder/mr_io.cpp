@@ -51,6 +51,18 @@ bool CMovementRecorderIO::LoadFromDisk(const std::string& path)
 	Com_Printf("^1failed to load '%s' - %s\n", path.c_str(), error.c_str());
 	return false;
 }
+bool CMovementRecorderIO::DeleteFileFromDisk(const std::string& name)
+{
+	const std::string mapname = Dvar_FindMalleableVar("mapname")->current.string;
+	const auto file = (AGENT_DIRECTORY() + "\\Playbacks\\" + mapname + "\\" + name);
+
+	if (!fs::file_exists(file)) {
+		Com_Printf("^1the file doesn't exist");
+		return false;
+	}
+
+	return std::filesystem::remove(file);
+}
 bool CMovementRecorderIO::RefreshAllLevelPlaybacks()
 {
 	m_oRefMovementRecorder.OnDisconnect();

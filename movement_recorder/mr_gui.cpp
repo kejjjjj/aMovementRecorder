@@ -1,6 +1,7 @@
 #include "bg/bg_pmove_simulation.hpp"
 #include "cg/cg_local.hpp"
 #include "cl/cl_utils.hpp"
+#include "cmd/cmd.hpp"
 #include "com/com_channel.hpp"
 #include "dvar/dvar.hpp"
 #include "main.hpp"
@@ -8,6 +9,7 @@
 #include "mr_playback.hpp"
 #include "mr_record.hpp"
 #include "utils/resolution.hpp"
+
 
 CPlaybackGui::CPlaybackGui(CPlayback& owner, const std::string name) : m_refOwner(owner), m_sName(name) {
 	m_iCurrentSlowdown = static_cast<int>(m_refOwner.m_objHeader.m_bJumpSlowdownEnable);
@@ -70,11 +72,13 @@ void CGuiMovementRecorder::RenderLevelRecordings()
 		return;
 	}
 
+	CMovementRecorderIO io(*CStaticMovementRecorder::Instance);
 	const auto window_length = ImGui::GetWindowSize().x - ImGui::GetCursorPos().x - ImGui::GetStyle().FramePadding.x;
 	ImGui::BeginChild("LevelPlaybacks", { window_length, static_cast<float>(adjust_from_480(480 / 4)) });
 
 	const auto movementRecorder = m_oRefMovementRecorder;
-	for (size_t n = 0u; const auto & [name, playback] : movementRecorder->LevelPlaybacks) {
+
+	for (auto n = 0u; const auto & [name, playback] : movementRecorder->LevelPlaybacks) {
 
 		if (!playback)
 			continue;
@@ -85,8 +89,34 @@ void CGuiMovementRecorder::RenderLevelRecordings()
 			m_pItem = std::make_shared<CPlaybackGui>(*playback, name);
 		}
 
+		ImGui::PushID(name.c_str());
+
+		if (ImGui::BeginPopupContextItem()) {
+
+			if (ImGui::MenuItem("Delete")) {
+
+				if (io.DeleteFileFromDisk(name))
+					Com_Printf("%s has been deleted from disk\n", name.c_str());
+
+				movementRecorder->LevelPlaybacks.erase(name); 
+				m_pItem.reset();
+				m_uSelectedIndex = 0;
+			} if (ImGui::MenuItem("Teleport To")) {
+				std::string buff = "mr_teleportTo " + name + "\n";
+				CBuf_Addtext(buff.c_str());
+			}
+					
+
+
+			ImGui::EndPopup();
+		}
+
+		ImGui::PopID();
+
+
 		n++;
 	}
+
 
 	ImGui::EndChild();
 

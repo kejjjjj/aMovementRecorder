@@ -1,10 +1,12 @@
-#include "main.hpp"
+#include "dvar/dvar.hpp"
 #include "movement_recorder/mr_main.hpp"
 #include "net/im_defaults.hpp"
 #include "net/nvar_table.hpp"
 #include "r/gui/r_main_gui.hpp"
 #include "r_movementrecorder.hpp"
 #include "shared/sv_shared.hpp"
+
+using namespace std::string_literals;
 
 CMovementRecorderWindow::CMovementRecorderWindow(const std::string& name)
 	: CGuiElement(name) {
@@ -80,10 +82,17 @@ void CMovementRecorderWindow::Render()
 
 		ImGui::EndTabBar();
 	}
-
 	ImGui::EndChild();
-
 	ImGui::EndGroup();
+
+	if (const auto promod_mode = Dvar_FindMalleableVar("promod_mode")) {
+		
+		if ("strat"s == promod_mode->current.string) {
+			ImGui::Separator();
+			ImGui::Text("it should be noted that the recorder is unable to detect\n"
+				"position loading if this mod doesn't use \"openscriptmenu cj load\"");
+		}
+	}
 
 }
 
