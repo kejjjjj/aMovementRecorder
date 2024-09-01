@@ -70,6 +70,7 @@ public:
 
 private:
 	std::int32_t GetCurrentTimeFromIndex(const std::int32_t cmdIndex) const;
+	void SyncClientFPS(const std::int32_t index) const noexcept;
 	void EditUserCmd(usercmd_s* cmd, const std::int32_t index) const;
 
 	void EraseDeadFrames();
@@ -83,6 +84,7 @@ private:
 	#pragma pack(push, 1)
 		struct Header
 		{
+			int m_iVersion = 1;
 			int m_iSpeed = 190;
 			slowdown_t m_bJumpSlowdownEnable = disabled;
 		}m_objHeader;

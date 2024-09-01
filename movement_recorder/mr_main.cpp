@@ -61,6 +61,7 @@ void CMovementRecorder::UpdatePlaybackQueue(usercmd_s* cmd, const usercmd_s* old
 	//set a new active
 	if (!PlaybackActive) {
 		PlaybackActive = PlaybackQueue.front().get();
+
 	}
 
 	if (!PlaybackActive)
@@ -117,7 +118,6 @@ void CMovementRecorder::OnPositionLoaded()
 {
 	if (Recorder) {
 		StopRecording();
-
 		StartRecording(true);
 	}
 
@@ -251,12 +251,28 @@ void CMovementRecorder::UpdateLineup(const playerState_s* ps, usercmd_s* cmd, co
 
 void CStaticMovementRecorder::SelectPlayback()
 {
+	if (CL_ConnectionState() != CA_ACTIVE)
+		return;
+
+	if (Instance->GetActivePlayback()) {
+		Instance->PlaybackActive = {};
+		Instance->PlaybackQueue.pop();
+		return;
+	}
+
 	return Instance->SelectPlayback();
 }
 void CStaticMovementRecorder::ToggleRecording()
 {
-	if (cgs->predictedPlayerState.pm_type != PM_NORMAL)
+	if (CL_ConnectionState() != CA_ACTIVE || cgs->predictedPlayerState.pm_type != PM_NORMAL)
 		return;
+
+	if (Instance->GetActivePlayback()) {
+		if (Instance->Segmenter)
+			return Instance->Segmenter->StartSegmenting();
+
+		return;
+	}
 
 	if (Instance->IsRecording())
 		return Instance->StopRecording();

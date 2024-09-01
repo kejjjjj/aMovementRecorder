@@ -59,18 +59,13 @@ std::int32_t CPlayback::GetCurrentTimeFromIndex(const std::int32_t cmdIndex) con
 {
 	return m_iFirstServerTime + (cmds[cmdIndex].serverTime - cmds.front().serverTime);
 }
+
 void CPlayback::EditUserCmd(usercmd_s* cmd, const std::int32_t index) const
 {
 	auto ps = &cgs->predictedPlayerState;
-	auto ft = cmds[index].serverTime - cmds[index].oldTime;
-
-	if (!ft) {
-		Com_Printf("^3Warning: playback with 0fps, replacing with 333fps\n");
-		ft = 3;
-	}
-
-	if (m_oSettings.m_bSetComMaxfps)
-		Dvar_FindMalleableVar("com_maxfps")->current.integer = 1000 / ft;
+	
+	if(m_oSettings.m_bSetComMaxfps)
+		SyncClientFPS(index);
 
 	cmd->serverTime = GetCurrentTimeFromIndex(index);
 
@@ -99,31 +94,44 @@ void CPlayback::EditUserCmd(usercmd_s* cmd, const std::int32_t index) const
 	cmd->rightmove = icmd->rightmove;
 	cmd->buttons = icmd->buttons;
 }
+void CPlayback::SyncClientFPS(const std::int32_t index) const noexcept
+{
+	auto ft = cmds[index].serverTime - cmds[index].oldTime;
+
+	if (!ft) {
+		Com_Printf("^3Warning: playback with 0fps, replacing with 333fps\n");
+		ft = 3;
+	}
+
+	if (m_oSettings.m_bSetComMaxfps)
+		Dvar_FindMalleableVar("com_maxfps")->current.integer = 1000 / ft;
+}
 void CPlayback::TryFixingTime(usercmd_s* currentCmd, const usercmd_s* uoldcmd)
 {
+
+	if (auto pb = CStaticMovementRecorder::Instance->GetDebugPlayback()) {
+		pb->m_oRealityPlayback.emplace_back(playback_cmd::FromPlayerState(&cgs->predictedPlayerState, currentCmd, uoldcmd));
+	}
+
+	if (m_oSettings.m_bNoLag)
+		return EditUserCmd(currentCmd, m_iCmd++);
 
 	auto numUnsent = 0u;
 	auto targetTime = GetCurrentTimeFromIndex(m_iCmd);
 
 	while (targetTime <= currentCmd->serverTime && (m_iCmd + numUnsent < cmds.size()) ) {
-		numUnsent++;
-		targetTime = GetCurrentTimeFromIndex(m_iCmd + numUnsent);
+		targetTime = GetCurrentTimeFromIndex(m_iCmd + (++numUnsent));
 	}
-
 
 	if (numUnsent > 0) {
 		EditUserCmd(currentCmd, m_iCmd++);
 
-		if (numUnsent > 1) {
-			for ([[maybe_unused]] auto i : std::views::iota(2u, numUnsent)) {
-				EditUserCmd(&clients->cmds[++clients->cmdNumber & 0x7F], m_iCmd++);
-			}
-		}
+		for (size_t i = 1; i < numUnsent; i++)
+			EditUserCmd(&clients->cmds[++clients->cmdNumber & 0x7F], m_iCmd++);
+		
 	} else {
-		if(m_oSettings.m_bNoLag)
-			EditUserCmd(currentCmd, m_iCmd++);
-		else
-			--clients->cmdNumber;
+		--clients->cmdNumber;
+		currentCmd->serverTime = GetCurrentTimeFromIndex(m_iCmd);
 	}
 
 	if (auto pb = CStaticMovementRecorder::Instance->GetDebugPlayback()) {
@@ -139,8 +147,17 @@ void CPlayback::DoPlayback(usercmd_s* cmd, const usercmd_s* oldcmd)
 		return;
 
 
+
 	if (!m_iCmd) {
 		m_iFirstServerTime = oldcmd->serverTime + (cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime);
+
+		const auto getSign = [](float v) { return v < 0 ? 1 : 0; };
+		if (Dvar_FindMalleableVar("sv_running")->current.enabled) {
+			if (getSign(cgs->predictedPlayerState.delta_angles[YAW]) != getSign(GetIterator()->delta_angles[YAW])) {
+				ps_loc->delta_angles[YAW] = GetIterator()->delta_angles[YAW];
+				return;
+			}
+		}
 	}
 
 	TryFixingTime(cmd, oldcmd);

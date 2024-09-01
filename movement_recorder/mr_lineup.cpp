@@ -136,37 +136,50 @@ void CLineup::MoveCloser(const playerState_s* ps, usercmd_s* cmd, const usercmd_
 		cmd->rightmove = 0;
 
 		playerState_s ps_local = *ps;
-		const auto cmds = CPmoveSimulation::PredictStopPosition(&ps_local, cmd, oldcmd, LINEUP_FPS);
-		
-		const fvec3 predicted_pos = cmds.back().origin;
+		//const auto cmds = CPmoveSimulation::PredictStopPosition(&ps_local, cmd, oldcmd, LINEUP_FPS);
 
-		const float xy_dist = fvec2(m_vecDestination).dist(predicted_pos.xy());
-		const float z_dist = std::abs(predicted_pos.z - m_vecDestination.z);
+		const auto cmds = CPmoveSimulation::PredictStopPositionAdvanced(&ps_local, cmd, oldcmd, {
+			.iFPS = LINEUP_FPS,
+			.uNumRepetitions = 0u,
+			.eFailCondition = CPmoveSimulation::StopPositionInput_t::FailCondition_e::airmove });
 
-		if (xy_dist <= m_fLineupAccuracy && z_dist < 100) {
-			m_uAccuracyTestFrames = cmds.size();
-			CStaticMovementRecorder::PushPlayback(cmds, 
-				{
-					.m_iGSpeed = CG_GetSpeed(ps),
-					.m_eJumpSlowdownEnable = (slowdown_t)Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
-					.m_bIgnorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
-					.m_bIgnoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get(),
-					.m_bNoLag = true, //lagging will ruin the accuracy
-				});
+		if (cmds) {
+			const fvec3 predicted_pos = cmds->back().origin;
 
+			const float xy_dist = fvec2(m_vecDestination).dist(predicted_pos.xy());
+			const float z_dist = std::abs(predicted_pos.z - m_vecDestination.z);
+
+			if (xy_dist <= m_fLineupAccuracy && z_dist < 100) {
+				m_uAccuracyTestFrames = cmds->size();
+				CStaticMovementRecorder::PushPlayback(*cmds,
+					{
+						.m_iGSpeed = CG_GetSpeed(ps),
+						.m_eJumpSlowdownEnable = (slowdown_t)Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
+						.m_bIgnorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+						.m_bIgnoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get(),
+						.m_bNoLag = true, //lagging will ruin the accuracy
+					});
+
+				return;
+			}
+
+			//use the next position to see how we can decelerate
+			const float moveDirection = (predicted_pos - m_vecDestination).toangles().y;
+			cl = CL_GetInputsFromAngle(AngleNormalize180(moveDirection - viewangles[YAW]));
+
+			//cl = GetNextDirection(&ps_local, cmd, oldcmd),
+
+			//move to the opposite direction for deceleration
+			cmd->forwardmove = -cl.forwardmove;
+			cmd->rightmove = -cl.rightmove;
 			return;
 		}
-
-		//use the next position to see how we can decelerate
-		const float moveDirection = (predicted_pos - m_vecDestination).toangles().y;
-		cl = CL_GetInputsFromAngle(AngleNormalize180(moveDirection - viewangles[YAW]));
-
-		//cl = GetNextDirection(&ps_local, cmd, oldcmd),
-
-		//move to the opposite direction for deceleration
-		cmd->forwardmove = -cl.forwardmove;
-		cmd->rightmove = -cl.rightmove;
-		return;
+		else {
+			//if we are going to fall off, then start moving to the opposite direction
+			cmd->forwardmove = -cl.forwardmove;
+			cmd->rightmove = -cl.rightmove;
+			return;
+		}
 	}
 
 	cmd->forwardmove = cl.forwardmove;

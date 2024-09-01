@@ -14,22 +14,14 @@
 #include <bg/bg_pmove_simulation.hpp>
 #include <bg/bg_pmove.hpp>
 
-void CL_FinishMove(usercmd_s* cmd)
+void CL_CreateNewCommands([[maybe_unused]]int localClientNum)
 {
-#if(DEBUG_SUPPORT)
-	hooktable::find<void, usercmd_s*>(HOOK_PREFIX(__func__))->call(cmd);
-#endif
-
-	//(fvec3&)clients->viewangles = fvec3(clients->viewangles).normalize180();
-
 	auto ps = &cgs->predictedPlayerState;
-	auto oldcmd = CL_GetUserCmd(clients->cmdNumber - 1);
+	auto cmd = &clients->cmds[clients->cmdNumber & 0x7F];
+	auto oldcmd = &clients->cmds[(clients->cmdNumber - 1) & 0x7F];
+
 	if (ps->pm_type == PM_NORMAL) {
 		CStaticMovementRecorder::Instance->Update(ps, cmd, oldcmd);
 	}
 
-	CStaticServerToClient::whatWasSent = { .cmd = *cmd, .ps = ps };
-
-
-	return;
 }

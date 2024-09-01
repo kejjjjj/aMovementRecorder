@@ -1,6 +1,11 @@
 #include "cg/cg_local.hpp"
 #include "cg/cg_offsets.hpp"
 
+#include "bg/bg_pmove_simulation.hpp"
+
+#include "movement_recorder/mr_main.hpp"
+#include "movement_recorder/mr_playback.hpp"
+
 #include "sv_client.hpp"
 #include "utils/engine.hpp"
 #include "utils/typedefs.hpp"
@@ -33,11 +38,20 @@ __declspec(naked) void SV_SendMessageToClientASM()
 }
 void SV_SendMessageToClient([[maybe_unused]]msg_t* msg, client_t* client)
 {
+	const auto getSign = [](float v) { return v < 0 ? 1 : 0; };
+
 	auto& Instance = CStaticServerToClient::whatWasReceived;
 
 	Instance.cmd = client->lastUsercmd;
 	Instance.snap = &client->frames[client->header.netchan.outgoingSequence & 0x1F];
 	Instance.ps = &Instance.snap->ps;
+
+	//if (auto pb = CStaticMovementRecorder::Instance->GetActivePlayback()) {
+
+	//	if (getSign(Instance.ps->delta_angles[YAW]) != getSign(pb->cmds[pb->GetIteratorIndex()].delta_angles[YAW]))
+	//		Instance.ps->delta_angles[YAW] = pb->cmds[pb->GetIteratorIndex()].delta_angles[YAW];
+
+	//}
 
 }
 __declspec(naked) void ClientThink_realASM()
@@ -68,6 +82,12 @@ void ClientThink_real([[maybe_unused]]usercmd_s* cmd, [[maybe_unused]] gentity_s
 	Instance.cmd = *cmd;
 	Instance.snap = nullptr;
 	Instance.ps = &gentity->client->ps;
+
+	//if (auto pb = CStaticMovementRecorder::Instance->GetActivePlayback()) {
+	//	if(Instance.ps)
+	//		Instance.ps->delta_angles[YAW] = pb->cmds[pb->GetIteratorIndex()].delta_angles[YAW];
+
+	//}
 
 }
 

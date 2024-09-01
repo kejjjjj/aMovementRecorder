@@ -1,18 +1,20 @@
-#include "mr_playback.hpp"
-#include "mr_segmenter.hpp"
-#include <dvar/dvar.hpp>
-#include <global_macros.hpp>
-#include <cg/cg_angles.hpp>
-#include <Windows.h>
-#include <cg/cg_local.hpp>
+#include "bg/bg_pmove_simulation.hpp"
+#include "cg/cg_angles.hpp"
+#include "cg/cg_client.hpp"
+#include "cg/cg_local.hpp"
 #include "cg/cg_offsets.hpp"
+#include "cmd/cmd.hpp"
+#include "dvar/dvar.hpp"
+#include "global_macros.hpp"
+#include "mr_playback.hpp"
 #include "mr_record.hpp"
-#include <cg/cg_client.hpp>
-#include <bg/bg_pmove_simulation.hpp>
-#include <ranges>
-#include <algorithm>
-#include <net/nvar_table.hpp>
+#include "mr_segmenter.hpp"
+#include "net/nvar_table.hpp"
 
+#include <algorithm>
+#include <ranges>
+#include <Windows.h>
+#include <com/com_channel.hpp>
 
 class CPlaybackSegmenterImpl
 {
@@ -25,7 +27,14 @@ public:
 	success_t Update(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd)
 	{
 
-		if (!m_oRecorder && WASD_PRESSED()) {
+		if (!m_oRecorder && (WASD_PRESSED() || m_bExternalPartyWantsToStartSegmenting)) {
+
+			if ((oldcmd->buttons & cmdEnums::crouch) != 0) {
+				cmd->buttons |= (cmdEnums::crouch_hold);
+				CBuf_Addtext("gocrouch\n");
+				
+			}
+
 			m_oRecorder = std::make_unique<CRecorder>();
 			m_iNewSegment = m_oOriginal.GetIteratorIndex();
 
@@ -34,8 +43,6 @@ public:
 		if (m_oRecorder)
 			return m_oRecorder->Record(ps, cmd, oldcmd), true;
 
-		if (!m_oOriginal.IsPlayback())
-			return false;
 
 		m_oOriginal.DoPlayback(cmd, oldcmd);
 
@@ -44,6 +51,9 @@ public:
 		}
 
 		return true;
+	}
+	void StartSegmenting() noexcept {
+		m_bExternalPartyWantsToStartSegmenting = true;
 	}
 	std::optional<CPlayback> GetResult() const
 	{
@@ -91,7 +101,7 @@ private:
 	std::unique_ptr<CRecorder> m_oRecorder;
 	CPlayback m_oOriginal;
 	std::size_t m_iNewSegment = 0u;
-
+	bool m_bExternalPartyWantsToStartSegmenting = false;
 };
 
 
@@ -104,6 +114,10 @@ CPlaybackSegmenter::~CPlaybackSegmenter() = default;
 success_t CPlaybackSegmenter::Update(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd)
 {
 	return m_oImpl->Update(ps, cmd, oldcmd);
+}
+void CPlaybackSegmenter::StartSegmenting() noexcept
+{
+	return m_oImpl->StartSegmenting();
 }
 std::optional<CPlayback> CPlaybackSegmenter::GetResult() const
 {

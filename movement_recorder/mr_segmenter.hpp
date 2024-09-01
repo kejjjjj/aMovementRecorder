@@ -20,6 +20,7 @@ public:
 
 	//\return false if everything is finished
 	success_t Update(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd);
+	void StartSegmenting() noexcept;
 	bool ResultExists() const noexcept;
 	std::optional<CPlayback> GetResult() const;
 	CPlayback* GetPlayback();
