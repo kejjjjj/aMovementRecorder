@@ -21,8 +21,8 @@ void CRecorder::Record(const playerState_s* ps, usercmd_s* cmd, const usercmd_s*
 		//don't allow any inputs while waiting
 		cmd->forwardmove = 0;
 		cmd->rightmove = 0;
-		cmd->buttons = 0;
 		
+		cmd->buttons &= (cmdEnums::prone | cmdEnums::prone_hold | cmdEnums::crouch | cmdEnums::crouch_hold);		
 		return;
 	}
 

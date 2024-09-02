@@ -91,28 +91,52 @@ void CGuiMovementRecorder::RenderLevelRecordings()
 
 		ImGui::PushID(name.c_str());
 
+		bool openPopup = false;
+
 		if (ImGui::BeginPopupContextItem()) {
 
 			if (ImGui::MenuItem("Delete")) {
-
-				if (io.DeleteFileFromDisk(name))
-					Com_Printf("%s has been deleted from disk\n", name.c_str());
-
-				movementRecorder->LevelPlaybacks.erase(name); 
-				m_pItem.reset();
-				m_uSelectedIndex = 0;
+				openPopup = true;
 			} if (ImGui::MenuItem("Teleport To")) {
 				std::string buff = "mr_teleportTo " + name + "\n";
 				CBuf_Addtext(buff.c_str());
 			}
-					
 
+			ImGui::EndPopup();
+
+		}
+
+		if(openPopup)
+			ImGui::OpenPopup("Confirmation");
+
+		if (ImGui::BeginPopupModal("Confirmation")) {
+			ImGui::Text("Are you sure about this?");
+			ImGui::Separator();
+
+			if (ImGui::Button("Yes", ImVec2(120, 0))) {
+
+				if (io.DeleteFileFromDisk(name))
+					Com_Printf("%s has been deleted from disk\n", name.c_str());
+
+				movementRecorder->LevelPlaybacks.erase(name);
+				m_pItem.reset();
+				m_uSelectedIndex = 0;
+
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::SameLine();
+
+			if (ImGui::Button("No", ImVec2(120, 0))) {
+				ImGui::CloseCurrentPopup();
+			}
 
 			ImGui::EndPopup();
 		}
 
 		ImGui::PopID();
 
+		
 
 		n++;
 	}
