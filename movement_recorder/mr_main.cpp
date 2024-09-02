@@ -256,7 +256,12 @@ void CStaticMovementRecorder::SelectPlayback()
 
 	if (Instance->GetActivePlayback()) {
 		Instance->PlaybackActive = {};
-		Instance->PlaybackQueue.pop();
+
+		if (Instance->Segmenter)
+			Instance->Segmenter.reset();
+
+		if(!Instance->PlaybackQueue.empty())
+			Instance->PlaybackQueue.pop();
 		return;
 	}
 
