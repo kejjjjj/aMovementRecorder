@@ -71,7 +71,7 @@ public:
 #if(MOVEMENT_RECORDER)
 
 	// Recording control
-	void StartRecording(bool start_from_movement = false);
+	void StartRecording(bool start_from_movement = false, bool includePlayerState = false);
 	void StopRecording();
 	bool IsRecording() const noexcept;
 
@@ -120,6 +120,7 @@ protected:
 	
 	//Recorder
 	std::unique_ptr<std::vector<playback_cmd>> PendingRecording;
+	std::vector<playerState_s> PendingRecordingPlayerStates;
 	std::unique_ptr<CRecorder> Recorder;
 	
 
@@ -203,9 +204,12 @@ public:
 		: m_oRefMovementRecorder(recorder) {}
 
 	[[maybe_unused]] bool SaveToDisk(const std::string& name, const std::vector<playback_cmd>& cmds);
-	
+	[[maybe_unused]] bool SavePlayerStatePlaybackToDisk(const std::string& name, const std::vector<playback_cmd>& cmds, const std::vector<playerState_s>& ps);
+
 	//pushes the file to LevelPlaybacks
 	[[maybe_unused]] bool LoadFromDisk(const std::string& name);
+	[[maybe_unused]] bool LoadPlayerStatePlaybackFromDisk(const std::string& name);
+
 	[[maybe_unused]] bool DeleteFileFromDisk(const std::string& name);
 
 
@@ -232,6 +236,8 @@ public:
 
 	//console commands
 	static void ToggleRecording();
+	static void ToggleRecordingWithPlayerState();
+
 	static void SelectPlayback();
 	static void OnDisconnect();
 	static void Save();

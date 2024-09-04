@@ -12,8 +12,10 @@ CMovementRecorderWindow::CMovementRecorderWindow(const std::string& name)
 	: CGuiElement(name) {
 
 	m_oKeybinds.emplace_back(std::make_unique<ImKeybind>("id_mr_record", "mr_record", "toggle recording"));
+	m_oKeybinds.emplace_back(std::make_unique<ImKeybind>("id_mr_recordps", "mr_recordPlayerState", "toggle big file size recordings (for long segmented recordings)"));
+
 	m_oKeybinds.emplace_back(std::make_unique<ImKeybind>("id_mr_playback", "mr_playback", "start playback"));
-	m_oKeybinds.emplace_back(std::make_unique<ImKeybind>("id_mr_playback", "mr_clear", "clear temporary recording (unsaved recording)"));
+	m_oKeybinds.emplace_back(std::make_unique<ImKeybind>("id_mr_clear", "mr_clear", "clear temporary recording (unsaved recording)"));
 
 
 }
