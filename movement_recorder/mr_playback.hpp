@@ -36,10 +36,18 @@ struct CPlaybackSettings
 class CPlayback
 {
 	friend class CDebugPlayback;
+	friend class CPlaybackIOWriter;
+	friend class CPlaybackIOReader;
+	friend class CPlaybackGui;
+
+	friend void UpdatePlaybackQueue(usercmd_s* cmd, usercmd_s* oldcmd);
 public:
-	CPlayback(std::vector<playback_cmd>&& data, const CPlaybackSettings& init);
-	explicit CPlayback(const std::vector<playback_cmd>& _data, const CPlaybackSettings& init);
-	~CPlayback();
+
+	CPlayback(std::vector<playback_cmd>&& data, const CPlaybackSettings& init, bool eraseIdle = true);
+	explicit CPlayback(const std::vector<playback_cmd>& _data, const CPlaybackSettings& init, bool eraseIdle = true);
+	virtual ~CPlayback();
+
+	[[nodiscard]] virtual constexpr bool AmIDerived() const noexcept { return false; }
 
 	void DoPlayback(usercmd_s* cmd, const usercmd_s* oldcmd);
 	bool IsPlayback() const noexcept;
@@ -58,17 +66,9 @@ public:
 	__forceinline constexpr void IgnoreWASD(bool ignore = true) const noexcept { m_oSettings.m_bIgnoreWASD = ignore; }
 	__forceinline constexpr bool bIgnoreWASD() const noexcept { return m_oSettings.m_bIgnoreWASD; }
 
-	operator std::vector<playback_cmd>();
-
-	friend class CPlaybackIOWriter;
-	friend class CPlaybackIOReader;
-	friend class CPlaybackGui;
-
-	friend void UpdatePlaybackQueue(usercmd_s* cmd, usercmd_s* oldcmd);
-
 	std::vector<playback_cmd> cmds;
 
-private:
+protected:
 	std::int32_t GetCurrentTimeFromIndex(const std::int32_t cmdIndex) const;
 	void SyncClientFPS(const std::int32_t index) const noexcept;
 	void EditUserCmd(usercmd_s* cmd, const std::int32_t index) const;
@@ -90,6 +90,35 @@ private:
 		}m_objHeader;
 	#pragma pack(pop)
 
+};
+
+//only save one playerstate every <num> cmds
+#define PLAYERSTATE_TO_CMD_RATIO 10
+
+class CPlayerStatePlayback : public CPlayback
+{
+	friend class CPlayerStatePlaybackIOWriter;
+	friend class CPlayerStatePlaybackIOReader;
+
+public:
+	CPlayerStatePlayback(std::vector<playback_cmd>&& data, std::vector<playerState_s>&& ps, const CPlaybackSettings& init);
+	explicit CPlayerStatePlayback(const std::vector<playback_cmd>& _data, const std::vector<playerState_s>& ps, const CPlaybackSettings& init);
+	~CPlayerStatePlayback();
+
+	[[nodiscard]] constexpr bool AmIDerived() const noexcept override { return true; }
+
+private:
+	std::vector<playerState_s> playerStates;
+
+#pragma pack(push, 1)
+	struct HeaderExtra
+	{
+		std::size_t m_uNumCmds = 0;
+		std::size_t m_uNumPlayerStates = 0;
+		std::size_t m_uPlayerStateToCmdRatio = PLAYERSTATE_TO_CMD_RATIO;
+
+	}m_objExtraHeader;
+#pragma pack(pop)
 };
 
 class CDebugPlayback
@@ -124,28 +153,76 @@ private:
 };
 
 
-class CPlaybackIOWriter : public AgentIOWriter
+template<typename PlaybackType = CPlayback>
+class CPlaybackIOWriterBase : public AgentIOWriter
 {
+	static_assert(std::is_base_of_v<CPlayback, PlaybackType>, "PlaybackType must derive from or be CPlayback");
+
 public:
-	CPlaybackIOWriter(const CPlayback* target, const std::string& name) 
+	CPlaybackIOWriterBase(const PlaybackType* target, const std::string& name)
 		: AgentIOWriter("Playbacks\\" + name, true), m_pTarget(target), m_sName(name) {}
 
-	bool Write() const;
+	virtual bool Write() const = 0;
 
 protected:
-	const CPlayback* m_pTarget = 0;
+	const PlaybackType* m_pTarget = 0;
 	std::string m_sName;
 };
 
-class CPlaybackIOReader : public AgentIOReader
+class CPlaybackIOWriter : public CPlaybackIOWriterBase<CPlayback>
 {
 public:
-	CPlaybackIOReader(const std::string& name)
+	CPlaybackIOWriter(const CPlayback* target, const std::string& name)
+		: CPlaybackIOWriterBase(target, name) {};
+
+	bool Write() const override;
+
+protected:
+};
+
+class CPlayerStatePlaybackIOWriter : public CPlaybackIOWriterBase<CPlayerStatePlayback>
+{
+
+public:
+	CPlayerStatePlaybackIOWriter(const CPlayerStatePlayback* target, const std::string& name)
+		: CPlaybackIOWriterBase(target, name) {};
+
+	bool Write() const override;
+
+protected:
+};
+
+template<typename PlaybackType = CPlayback>
+class CPlaybackIOReaderBase : public AgentIOReader
+{
+	static_assert(std::is_base_of_v<CPlayback, PlaybackType>, "PlaybackType must derive from or be CPlayback");
+
+public:
+	CPlaybackIOReaderBase(const std::string& name)
 		: AgentIOReader("Playbacks\\" + name, true), m_sName(name) {}
 
-	bool Read();
-	std::unique_ptr<CPlayback> m_objResult;
+	virtual bool Read() = 0;
+	std::unique_ptr<PlaybackType> m_objResult;
 
 protected:
 	std::string m_sName;
+};
+
+
+class CPlaybackIOReader : public CPlaybackIOReaderBase<CPlayback>
+{
+public:
+	CPlaybackIOReader(const std::string& name)
+		: CPlaybackIOReaderBase(name) {};
+
+	bool Read() override;
+};
+
+class CPlayerStatePlaybackIOReader : public CPlaybackIOReaderBase<CPlayerStatePlayback>
+{
+public:
+	CPlayerStatePlaybackIOReader(const std::string& name)
+		: CPlaybackIOReaderBase(name) {};
+
+	bool Read() override;
 };

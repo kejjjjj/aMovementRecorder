@@ -16,7 +16,7 @@
 
 #include <ranges>
 
-CPlayback::CPlayback(std::vector<playback_cmd>&& _data, const CPlaybackSettings& init)
+CPlayback::CPlayback(std::vector<playback_cmd>&& _data, const CPlaybackSettings& init, bool eraseIdle)
 	: cmds(std::forward<std::vector<playback_cmd>&&>(_data)), m_oSettings(init) {
 	m_iCmd = 0u;
 
@@ -33,10 +33,11 @@ CPlayback::CPlayback(std::vector<playback_cmd>&& _data, const CPlaybackSettings&
 		CStaticMovementRecorder::Instance->AddDebugPlayback(cmds);
 	}
 
-	EraseDeadFrames();
+	if(eraseIdle)
+		EraseDeadFrames();
 
 }
-CPlayback::CPlayback(const std::vector<playback_cmd>& _data, const CPlaybackSettings& init)
+CPlayback::CPlayback(const std::vector<playback_cmd>& _data, const CPlaybackSettings& init, bool eraseIdle)
 	: cmds(_data), m_oSettings(init) {
 	m_iCmd = 0u;
 
@@ -51,7 +52,8 @@ CPlayback::CPlayback(const std::vector<playback_cmd>& _data, const CPlaybackSett
 		CStaticMovementRecorder::Instance->AddDebugPlayback(cmds);
 	}
 
-	EraseDeadFrames();
+	if (eraseIdle)
+		EraseDeadFrames();
 }
 CPlayback::~CPlayback() = default;
 
@@ -189,7 +191,6 @@ bool CPlayback::IsCompatibleWithState(const playerState_s* ps) const noexcept
 }
 fvec3 CPlayback::GetOrigin() const noexcept { return cmds.front().origin; }
 fvec3 CPlayback::GetAngles() const noexcept { return cmds.front().viewangles; }
-CPlayback::operator std::vector<playback_cmd>() { return cmds; }
 
 void CPlayback::EraseDeadFrames()
 {
@@ -202,6 +203,36 @@ void CPlayback::EraseDeadFrames()
 
 	cmds.erase(cmds.begin(), it - 1);
 }
+
+/**
+ * .
+ * 
+ * \return 
+ */
+CPlayerStatePlayback::CPlayerStatePlayback(std::vector<playback_cmd>&& data, std::vector<playerState_s>&& ps, const CPlaybackSettings& init)
+	: CPlayback(std::move(data), init, false), playerStates(std::move(ps)) {
+
+	m_objExtraHeader.m_uNumCmds = cmds.size();
+	m_objExtraHeader.m_uNumPlayerStates = playerStates.size();
+
+	const auto ratio = static_cast<std::size_t>(cmds.size() / playerStates.size()) + 1u;
+
+	m_objExtraHeader.m_uPlayerStateToCmdRatio = ratio;
+
+};
+CPlayerStatePlayback::CPlayerStatePlayback(const std::vector<playback_cmd>& data, const std::vector<playerState_s>& ps, const CPlaybackSettings& init) 
+	: CPlayback(data, init, false), playerStates(ps){
+
+	m_objExtraHeader.m_uNumCmds = cmds.size();
+	m_objExtraHeader.m_uNumPlayerStates = playerStates.size();
+
+	const auto ratio = static_cast<std::size_t>(cmds.size() / playerStates.size()) + 1u;
+
+	m_objExtraHeader.m_uPlayerStateToCmdRatio = ratio;
+}
+
+CPlayerStatePlayback::~CPlayerStatePlayback() = default;
+
 
 bool CPlaybackIOWriter::Write() const
 {
@@ -225,6 +256,8 @@ bool CPlaybackIOWriter::Write() const
 		if (!IO_Append(content))
 			return false;
 	}
+
+
 
 	return true;
 }
@@ -266,8 +299,116 @@ bool CPlaybackIOReader::Read()
 
 	return true;
 }
+/***********************************************************************
+ > 
+***********************************************************************/
+
+bool CPlayerStatePlaybackIOWriter::Write() const
+{
+	if (m_pTarget->cmds.empty())
+		return false;
+
+#pragma pack(push, 1)
+	struct FullHeader {
+		CPlayback::Header original;
+		CPlayerStatePlayback::HeaderExtra extra;
+	}header{ .original = m_pTarget->m_objHeader, .extra = m_pTarget->m_objExtraHeader };
+#pragma pack(pop)
 
 
+	//Write the first index so that it overwrites all previous data
+	const std::string header_content = std::string(
+		reinterpret_cast<const char*>(&header),
+		reinterpret_cast<const char*>(&header) + sizeof(FullHeader));
+
+	if (!IO_Write(header_content))
+		return false;
+
+
+	for (const auto Frame : std::views::iota(0u, m_pTarget->m_objExtraHeader.m_uNumCmds)) {
+
+		const std::string content = std::string(
+			reinterpret_cast<const char*>(&m_pTarget->cmds[Frame]),
+			reinterpret_cast<const char*>(&m_pTarget->cmds[Frame]) + sizeof(playback_cmd));
+
+		if (!IO_Append(content))
+			return false;
+	}
+
+	for (const auto Frame : std::views::iota(0u, m_pTarget->m_objExtraHeader.m_uNumPlayerStates)) {
+
+		const std::string content = std::string(
+			reinterpret_cast<const char*>(&m_pTarget->playerStates[Frame]),
+			reinterpret_cast<const char*>(&m_pTarget->playerStates[Frame]) + sizeof(playerState_s));
+
+		if (!IO_Append(content))
+			return false;
+	}
+
+	return true;
+}
+bool CPlayerStatePlaybackIOReader::Read()
+{
+	auto buff = IO_Read();
+
+	if (!buff)
+		return false;
+
+	auto& data = buff.value();
+
+#pragma pack(push, 1)
+	struct FullHeader {
+		CPlayback::Header original;
+		CPlayerStatePlayback::HeaderExtra extra;
+	}header;
+#pragma pack(pop)
+
+	if (data.length() < sizeof(header))
+		return false;
+
+	memcpy(&header, data.c_str(), sizeof(header));
+	data = data.erase(0, sizeof(header));
+
+	std::vector<playback_cmd> cmds;
+	std::vector<playerState_s> states;
+
+	//read cmds
+	for([[maybe_unused]]auto i : std::views::iota(0u, header.extra.m_uNumCmds)) {
+		playback_cmd cmd;
+
+		memcpy(&cmd, data.c_str(), sizeof(playback_cmd));
+		data = data.erase(0, sizeof(playback_cmd));
+
+		cmds.emplace_back(cmd);
+
+		if (data.length() < sizeof(playback_cmd))
+			return false;
+	}
+
+	if (cmds.empty())
+		return false;
+
+	//read playerstates
+	for ([[maybe_unused]] auto i : std::views::iota(0u, header.extra.m_uNumPlayerStates)) {
+		playerState_s state;
+
+		memcpy(&state, data.c_str(), sizeof(playerState_s));
+		data = data.erase(0, sizeof(playerState_s));
+
+		states.emplace_back(state);
+	}
+
+	if (states.empty())
+		return false;
+
+	m_objResult = std::make_unique<CPlayerStatePlayback>(cmds, states,
+		CPlaybackSettings{
+			.m_iGSpeed = header.original.m_iSpeed,
+			.m_eJumpSlowdownEnable = header.original.m_bJumpSlowdownEnable,
+		});
+
+	return true;
+}
 
 /***********************************************************************
  > 
@@ -277,7 +418,6 @@ CDebugPlayback::CDebugPlayback(const std::vector<playback_cmd>& cmds) : m_oExpec
 
 
 }
-
 
 
 

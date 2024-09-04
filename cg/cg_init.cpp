@@ -43,7 +43,7 @@ static void NVar_Setup(NVarTable* table)
     table->AddImNvar<bool, ImCheckbox>("Segmenting", false, NVar_ArithmeticToString<bool>)
         ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, "continue recording after pressing WASD during playback");
 
-    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, nvar_saved, 0.f, 1.f, "%.6f")
+    table->AddImNvar<float, ImDragFloat>("Lineup distance", 0.005f, NVar_ArithmeticToString<float>, nvar_saved, 0.f, 1.f, 0.f, "%.6f")
     ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, 
         "how close to the origin you need to be before the playback starts\n"
         "the closer you get, the better the playback will be");
@@ -78,6 +78,8 @@ void CG_Init()
     Cmd_AddCommand("gui", CStaticMainGui::Toggle);
 
     Cmd_AddCommand("mr_record", CStaticMovementRecorder::ToggleRecording);
+    Cmd_AddCommand("mr_recordPlayerstate", CStaticMovementRecorder::ToggleRecordingWithPlayerState);
+
     Cmd_AddCommand("mr_playback", CStaticMovementRecorder::SelectPlayback);
     Cmd_AddCommand("mr_save", CStaticMovementRecorder::Save);
     Cmd_AddCommand("mr_teleportTo", CStaticMovementRecorder::TeleportTo);

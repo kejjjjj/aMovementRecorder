@@ -82,17 +82,27 @@ void CMovementRecorder::UpdatePlaybackQueue(usercmd_s* cmd, const usercmd_s* old
 
 }
 #if(MOVEMENT_RECORDER)
-void CMovementRecorder::StartRecording(bool start_from_movement) {
+void CMovementRecorder::StartRecording(bool start_from_movement, bool includePlayerState) {
 	PendingRecording.reset();
 
 	//wait 300 server frames before starting the recoding so that SetOrigin() has enough time to set the position 
-	Recorder = std::make_unique<CRecorder>(start_from_movement, 300);
+	if(!includePlayerState)
+		Recorder = std::make_unique<CRecorder>(start_from_movement, 300);
+	else
+		Recorder = std::make_unique<CPlayerStateRecorder>(start_from_movement, 300);
+
 }
 void CMovementRecorder::StopRecording() {
 	if (!Recorder)
 		return;
 
 	PendingRecording = std::make_unique<std::vector<playback_cmd>>(Recorder->StopRecording());
+
+	//kind of a silly hardcoded thing, but I doubt the recorder will extend functionality after this :clueless:
+	if (Recorder->AmIDerived()) {
+		const auto r = dynamic_cast<CPlayerStateRecorder*>(Recorder.get());
+		PendingRecordingPlayerStates = r->playerState;
+	}
 	Recorder.reset();
 
 }
@@ -104,7 +114,7 @@ void CMovementRecorder::StopSegmenting() {
 	if (Segmenter->ResultExists()) {
 
 		if (auto result = Segmenter->GetResult()) {
-			PendingRecording = std::make_unique<std::vector<playback_cmd>>(result.value());
+			PendingRecording = std::make_unique<std::vector<playback_cmd>>(result->cmds);
 		}
 		else {
 			Com_Printf("the recording failed\n");
@@ -117,8 +127,9 @@ bool CMovementRecorder::IsSegmenting() const noexcept { return Segmenter != null
 void CMovementRecorder::OnPositionLoaded()
 {
 	if (Recorder) {
+		const bool wasDerived = Recorder->AmIDerived();
 		StopRecording();
-		StartRecording(true);
+		StartRecording(true, wasDerived);
 	}
 
 	//loading position resets the segmenter
@@ -288,7 +299,26 @@ void CStaticMovementRecorder::ToggleRecording()
 
 	Instance->StartRecording();
 }
+void CStaticMovementRecorder::ToggleRecordingWithPlayerState()
+{
+	if (CL_ConnectionState() != CA_ACTIVE || cgs->predictedPlayerState.pm_type != PM_NORMAL)
+		return;
 
+	if (Instance->GetActivePlayback()) {
+		//no such thing as segmenting here LOL
+		Com_Printf("^1Segmenting playerstate recordings is not supported!\n");
+		return;
+	}
+
+	if (Instance->IsRecording())
+		return Instance->StopRecording();
+
+	if (Instance->IsSegmenting())
+		return Instance->StopSegmenting();
+
+
+	Instance->StartRecording(false, true);
+}
 void CStaticMovementRecorder::OnDisconnect() {
 	m_bPlaybacksLoaded = false;
 
@@ -312,7 +342,12 @@ void CStaticMovementRecorder::Save() {
 
 	CMovementRecorderIO io(*Instance);
 
-	if (io.SaveToDisk(filename, *Instance->PendingRecording))
+	
+	if(!Instance->PendingRecordingPlayerStates.empty())
+		if (io.SavePlayerStatePlaybackToDisk(filename, *Instance->PendingRecording, Instance->PendingRecordingPlayerStates))
+			Instance->PendingRecording.reset();
+
+	else if (io.SaveToDisk(filename, *Instance->PendingRecording))
 		Instance->PendingRecording.reset();
 
 }
