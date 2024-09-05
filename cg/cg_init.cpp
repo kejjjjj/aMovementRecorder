@@ -85,6 +85,7 @@ void CG_Init()
     Cmd_AddCommand("mr_teleportTo", CStaticMovementRecorder::TeleportTo);
     Cmd_AddCommand("mr_clear", CStaticMovementRecorder::Clear);
     Cmd_AddCommand("mr_simulation", CStaticMovementRecorder::Simulation);
+    Cmd_AddCommand("mr_advance", CStaticMovementRecorder::AdvanceEditor);
 
     CStaticMainGui::AddItem(std::make_unique<CMovementRecorderWindow>(NVAR_TABLE_NAME));
 
