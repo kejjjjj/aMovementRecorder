@@ -18,6 +18,7 @@
 
 CPlayback::CPlayback(std::vector<playback_cmd>&& _data, const CPlaybackSettings& init, bool eraseIdle)
 	: cmds(std::forward<std::vector<playback_cmd>&&>(_data)), m_oSettings(init) {
+	
 	m_iCmd = 0u;
 
 	
@@ -39,6 +40,7 @@ CPlayback::CPlayback(std::vector<playback_cmd>&& _data, const CPlaybackSettings&
 }
 CPlayback::CPlayback(const std::vector<playback_cmd>& _data, const CPlaybackSettings& init, bool eraseIdle)
 	: cmds(_data), m_oSettings(init) {
+
 	m_iCmd = 0u;
 
 	m_objHeader = {
@@ -150,9 +152,8 @@ void CPlayback::DoPlayback(usercmd_s* cmd, const usercmd_s* oldcmd)
 
 
 
-	if (!m_iCmd) {
-		m_iFirstServerTime = oldcmd->serverTime + (cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime);
 
+	if (!m_iCmd) {
 		const auto getSign = [](float v) { return v < 0 ? 1 : 0; };
 		if (Dvar_FindMalleableVar("sv_running")->current.enabled) {
 			if (getSign(cgs->predictedPlayerState.delta_angles[YAW]) != getSign(GetIterator()->delta_angles[YAW])) {
@@ -160,11 +161,16 @@ void CPlayback::DoPlayback(usercmd_s* cmd, const usercmd_s* oldcmd)
 				return;
 			}
 		}
+		m_iFirstServerTime = oldcmd->serverTime + (cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime);
+
 	}
 
+	//if (m_iCmd == 0) {
+	//	m_iFirstServerTime = oldcmd->serverTime + (cmds[m_iCmd].serverTime - cmds[m_iCmd].oldTime);
+
+	//}
+
 	TryFixingTime(cmd, oldcmd);
-
-
 }
 playback_cmd* CPlayback::GetIterator() 
 { 
@@ -396,6 +402,9 @@ bool CPlayerStatePlaybackIOReader::Read()
 		data = data.erase(0, sizeof(playerState_s));
 
 		states.emplace_back(state);
+
+		if (data.empty())
+			break;
 	}
 
 	if (states.empty())

@@ -100,6 +100,9 @@ class CPlayerStatePlayback : public CPlayback
 	friend class CPlayerStatePlaybackIOWriter;
 	friend class CPlayerStatePlaybackIOReader;
 
+	friend class CPlaybackEditor;
+	friend class CPlaybackEditorRenderer;
+
 public:
 	CPlayerStatePlayback(std::vector<playback_cmd>&& data, std::vector<playerState_s>&& ps, const CPlaybackSettings& init);
 	explicit CPlayerStatePlayback(const std::vector<playback_cmd>& _data, const std::vector<playerState_s>& ps, const CPlaybackSettings& init);
@@ -120,6 +123,21 @@ private:
 	}m_objExtraHeader;
 #pragma pack(pop)
 };
+
+//class CTimedPlayback : public CPlayback
+//{
+//
+//public:
+//	CTimedPlayback(std::vector<playback_cmd>&& data, const CPlaybackSettings& init);
+//	explicit CTimedPlayback(const std::vector<playback_cmd>& _data, const CPlaybackSettings& init);
+//	~CTimedPlayback();
+//
+//	[[nodiscard]] constexpr bool AmIDerived() const noexcept override { return true; }
+//
+//private:
+//	std::vector<playerState_s> playerStates;
+//};
+//
 
 class CDebugPlayback
 {

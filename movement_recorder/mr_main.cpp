@@ -6,20 +6,24 @@
 #include "mr_record.hpp"
 #include "mr_segmenter.hpp"
 #include "mr_tests.hpp"
+#include "mr_playbackeditor.hpp"
 #endif
 
-#include <cg/cg_angles.hpp>
-#include <cg/cg_local.hpp>
-#include <cg/cg_offsets.hpp>
-#include <cl/cl_move.hpp>
-#include <com/com_channel.hpp>
-#include <dvar/dvar.hpp>
-#include <net/nvar_table.hpp>
-#include <cg/cg_client.hpp>
-#include <fs/fs_globals.hpp>
-#include <Windows.h>
+#include "cg/cg_angles.hpp"
+#include "cg/cg_local.hpp"
+#include "cg/cg_offsets.hpp"
+#include "cl/cl_move.hpp"
+#include "com/com_channel.hpp"
+#include "dvar/dvar.hpp"
+#include "net/nvar_table.hpp"
+#include "cg/cg_client.hpp"
+#include "fs/fs_globals.hpp"
 #include "bg/bg_pmove_simulation.hpp"
-#include <cl/cl_utils.hpp>
+#include "cl/cl_utils.hpp"
+#include "utils/functions.hpp"
+
+#include <Windows.h>
+
 
 std::unique_ptr<CMovementRecorder> CStaticMovementRecorder::Instance = std::make_unique<CMovementRecorder>();
 
@@ -33,6 +37,20 @@ void CMovementRecorder::Update([[maybe_unused]]const playerState_s* ps, usercmd_
 {
 
 #if(MOVEMENT_RECORDER)
+
+	if (TimedPlayback) {
+
+		if (!TimedPlaybackTiming)
+			CreateTimedPlayback();
+
+		if (level->time < TimedPlaybackTiming) {
+			return;
+		}
+
+		TimedPlayback = nullptr;
+		TimedPlaybackTiming = 0;
+	}
+
 	UpdateLineup(ps, cmd, oldcmd);
 	UpdatePlaybackQueue(cmd, oldcmd);
 
@@ -143,6 +161,17 @@ void CMovementRecorder::SelectPlayback()
 {
 	const is_segment_t segmenting_allowed = static_cast<is_segment_t>(NVar_FindMalleableVar<bool>("Segmenting")->Get());
 
+	if (InEditor()) {
+		TimedPlayback = Editor->GetCurrentState();
+
+		if (CG_IsOnGround(TimedPlayback)) {
+			TimedPlayback = 0;
+			Com_Printf("^1you can only continue from a point where the player is in the air\n");
+		}
+
+		return;
+	}
+
 	if (PendingRecording) {
 		PushPlayback(CPlayback(
 			std::vector<playback_cmd>(*PendingRecording),
@@ -198,6 +227,7 @@ void CMovementRecorder::OnDisconnect()
 	PlaybackActive = {};
 	LevelPlaybacks.clear();
 	Lineup.reset();
+	Editor.reset();
 
 	while (PlaybackQueue.size())
 		PlaybackQueue.pop();
@@ -259,7 +289,45 @@ void CMovementRecorder::UpdateLineup(const playerState_s* ps, usercmd_s* cmd, co
 
 }
 
+void CMovementRecorder::CreateTimedPlayback()
+{
+	std::vector<playback_cmd> copy;
+	auto& cmds = Editor->m_oRefPlayback.cmds;
 
+	copy.resize(cmds.size() - Editor->GetCurrentCmdOffset());
+
+	std::copy(cmds.begin() + Editor->GetCurrentCmdOffset(), cmds.end(), copy.begin());
+
+	PlaybackQueue.emplace(
+		std::make_unique<CPlayback>(copy,
+			CPlaybackSettings{
+				.m_iGSpeed = CG_GetSpeed(&cgs->predictedPlayerState),
+				.m_eJumpSlowdownEnable = (slowdown_t)Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
+				.m_bIgnorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
+				.m_bIgnoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get(),
+			}, false));
+
+
+	const auto oldTime = ps_loc->commandTime;
+	auto oldSprint = ps_loc->sprintState;
+	const auto oldJumpTime = ps_loc->jumpTime;
+
+	oldSprint.sprintButtonUpRequired = 0;
+	oldSprint.lastSprintStart = 0;
+	oldSprint.lastSprintEnd = 0;
+
+	*ps_loc = *TimedPlayback;
+	ps_loc->commandTime = oldTime;
+	ps_loc->sprintState = oldSprint;
+	ps_loc->jumpTime = oldJumpTime;
+
+	const auto& f = PlaybackQueue.front()->cmds.front();
+
+	level->time = level->previousTime + (f.serverTime - f.oldTime);
+	TimedPlaybackTiming = level->time;
+
+
+}
 void CStaticMovementRecorder::SelectPlayback()
 {
 	if (CL_ConnectionState() != CA_ACTIVE)
@@ -283,6 +351,9 @@ void CStaticMovementRecorder::ToggleRecording()
 	if (CL_ConnectionState() != CA_ACTIVE || cgs->predictedPlayerState.pm_type != PM_NORMAL)
 		return;
 
+	if (Instance->InEditor())
+		return Com_Printf("not allowed when editing a playback\n");
+
 	if (Instance->GetActivePlayback()) {
 		if (Instance->Segmenter)
 			return Instance->Segmenter->StartSegmenting();
@@ -303,6 +374,13 @@ void CStaticMovementRecorder::ToggleRecordingWithPlayerState()
 {
 	if (CL_ConnectionState() != CA_ACTIVE || cgs->predictedPlayerState.pm_type != PM_NORMAL)
 		return;
+
+	if (!Dvar_FindMalleableVar("sv_running")->current.enabled)
+		return Com_Printf("^1this command is only available when sv_running is 1");
+
+	if (Instance->InEditor())
+		return Com_Printf("not allowed when editing a playback\n");
+
 
 	if (Instance->GetActivePlayback()) {
 		//no such thing as segmenting here LOL
@@ -362,6 +440,10 @@ void CStaticMovementRecorder::TeleportTo() {
 	if (num_args != 2) {
 		return Com_Printf("usage: mr_teleportTo <filename>\n");
 	}
+
+	if(Instance->InEditor())
+		return Com_Printf("not allowed when editing a playback\n");
+
 
 	const auto file = *(cmd_args->argv[cmd_args->nesting] + 1);
 	const auto item = Instance->LevelPlaybacks.find(file);
@@ -431,7 +513,33 @@ void CStaticMovementRecorder::Simulation()
 
 
 }
+void CStaticMovementRecorder::AdvanceEditor()
+{
+	if (CL_ConnectionState() != CA_ACTIVE)
+		return;
 
+
+	const auto numArgs = cmd_args->argc[cmd_args->nesting];
+
+	if (numArgs != 2)
+		return Com_Printf("usage: mr_advance <number of frames>");
+
+	if(!IsInteger(cmd_args->argv[cmd_args->nesting][1]))
+		return Com_Printf("^1argument must be integral");
+
+	if(!Dvar_FindMalleableVar("sv_running")->current.enabled)
+		return Com_Printf("^1this command is only available when sv_running is 1");
+
+	if(!Instance->InEditor())
+		return Com_Printf("^1this command is only available when editing a playback");
+
+	const auto frameCount = std::stoi(cmd_args->argv[cmd_args->nesting][1]);
+
+	Instance->Editor->Advance(frameCount);
+
+
+
+}
 #else
 void CMovementRecorder::PushPlayback(CPlayback&& playback)
 {
@@ -461,6 +569,20 @@ CDebugPlayback* CMovementRecorder::GetDebugPlayback() const noexcept
 void CMovementRecorder::ClearDebugPlayback()
 {
 	m_pDebugPlayback = 0;
+}
+bool CMovementRecorder::InEditor() const noexcept
+{
+	return Editor != nullptr;
+}
+void CMovementRecorder::CreateEditor(const CPlayerStatePlayback& playback)
+{
+	DeleteEditor();
+	Editor = std::make_unique<CPlaybackEditor>(playback);
+}
+void CMovementRecorder::DeleteEditor()
+{
+	Editor.reset();
+	Editor = 0;
 }
 CPlayback* CMovementRecorder::GetActivePlayback() {
 

@@ -90,8 +90,7 @@ bool CMovementRecorderIO::LoadPlayerStatePlaybackFromDisk(const std::string& pat
 		return true;
 	}
 
-	const auto error = fs::get_last_error();
-	Com_Printf("^1failed to load '%s' - %s\n", path.c_str(), error.c_str());
+	Com_Printf("^1failed to load '%s'\n", path.c_str());
 	return false;
 }
 bool CMovementRecorderIO::DeleteFileFromDisk(const std::string& name)

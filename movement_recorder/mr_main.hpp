@@ -39,6 +39,8 @@ class CLineup;
 class CRecorder;
 class CPlaybackGui;
 class CPlaybackSimulation;
+class CPlaybackEditor;
+class CPlayerStatePlayback;
 #endif
 
 struct playback_cmd;
@@ -61,6 +63,8 @@ class CMovementRecorder
 	friend class CGuiMovementRecorder;
 	friend class CMovementRecorderIO;
 	friend class CRBMovementRecorder;
+
+	friend void RB_DrawDebug(GfxViewParms* viewParms);
 #endif
 
 public:
@@ -96,6 +100,9 @@ public:
 	CDebugPlayback* GetDebugPlayback() const noexcept;
 	void ClearDebugPlayback();
 
+	bool InEditor() const noexcept;
+	void CreateEditor(const CPlayerStatePlayback& playback);
+	void DeleteEditor();
 
 	CPlayback* GetActivePlayback();
 	CPlayback* GetActivePlayback() const;
@@ -129,14 +136,23 @@ protected:
 
 	//Simulations
 	std::unique_ptr<CPlaybackSimulation> Simulation;
+
+	//Editing
+	std::unique_ptr<CPlaybackEditor> Editor;
+
+	//The next playback will start only when current playerstate matches this one
+	const playerState_s* TimedPlayback = nullptr;
+	int TimedPlaybackTiming = 0;
 #endif
 
 private:
 #if(MOVEMENT_RECORDER)
 	void UpdateLineup(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd);
+	void CreateTimedPlayback();
 #endif
 
 	void UpdatePlaybackQueue(usercmd_s* cmd, const usercmd_s* oldcmd);
+
 
 };
 
@@ -245,6 +261,7 @@ public:
 	static void Clear();
 	static void Simulation();
 
+	static void AdvanceEditor();
 
 	//automatically load all recordings for the level
 	static void Update();

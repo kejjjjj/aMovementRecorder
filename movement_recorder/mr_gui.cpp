@@ -78,13 +78,18 @@ void CGuiMovementRecorder::RenderLevelRecordings()
 
 	const auto movementRecorder = m_oRefMovementRecorder;
 
+	bool isHost = Dvar_FindMalleableVar("sv_running")->current.enabled;
+
 	for (auto n = 0u; const auto & [name, playback] : movementRecorder->LevelPlaybacks) {
 
-		if (!playback)
+		if (!playback || !isHost && playback->AmIDerived())
 			continue;
 
 		ImGui::SetNextItemWidth(100);
-		if (ImGui::Selectable(name.c_str(), n == m_uSelectedIndex)) {
+
+		auto dname = std::string(name) + (playback->AmIDerived() ? " (+)" : "");
+
+		if (ImGui::Selectable(dname.c_str(), n == m_uSelectedIndex)) {
 			m_uSelectedIndex = n;
 			m_pItem = std::make_shared<CPlaybackGui>(*playback, name);
 		}
@@ -102,6 +107,14 @@ void CGuiMovementRecorder::RenderLevelRecordings()
 				CBuf_Addtext(buff.c_str());
 			}
 
+			if (playback->AmIDerived()) {
+				if (!movementRecorder->InEditor() && ImGui::MenuItem("Edit"))
+					movementRecorder->CreateEditor(dynamic_cast<CPlayerStatePlayback&>(*playback));
+				else if (movementRecorder->InEditor() && ImGui::MenuItem("Exit editor"))
+					movementRecorder->DeleteEditor();
+
+			}
+
 			ImGui::EndPopup();
 
 		}
@@ -117,6 +130,9 @@ void CGuiMovementRecorder::RenderLevelRecordings()
 
 				if (io.DeleteFileFromDisk(name))
 					Com_Printf("%s has been deleted from disk\n", name.c_str());
+
+				if (movementRecorder->InEditor())
+					movementRecorder->DeleteEditor();
 
 				movementRecorder->LevelPlaybacks.erase(name);
 				m_pItem.reset();

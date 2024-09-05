@@ -17,6 +17,7 @@
 #include "movement_recorder/mr_playback.hpp"
 #include "movement_recorder/mr_record.hpp"
 #include "movement_recorder/mr_segmenter.hpp"
+#include "movement_recorder/mr_playbackeditor.hpp"
 
 #include "net/nvar_table.hpp"
 
@@ -60,11 +61,13 @@ void CRMovementRecorder::CG_Render() const
 			"x:      {:.6f}\n"
 			"y:      {:.6f}\n"
 			"z:      {:.6f}\n"
-			"yaw: {:.6f}\n",
+			"yaw: {:.6f}\n"
+			"svs->time: {}",
 			clients->cgameOrigin[0],
 			clients->cgameOrigin[1],
 			clients->cgameOrigin[2],
-			clients->cgameViewangles[YAW]);
+			clients->cgameViewangles[YAW],
+			level->time);
 
 		R_AddCmdDrawTextWithEffects(text, "fonts/normalFont", fvec2{ 310, 420 }, { 0.4f, 0.5f }, 0.f, 3, vec4_t{ 1,1,1,1 }, vec4_t{ 1,0,0,0 });
 #endif
@@ -162,8 +165,16 @@ void RB_DrawDebug([[maybe_unused]]GfxViewParms* viewParms)
 
 
 #if(MOVEMENT_RECORDER)
-	auto renderer = CRBMovementRecorder(*CStaticMovementRecorder::Instance);
+
+
+	auto& movementRecorder = *CStaticMovementRecorder::Instance;
+
+	auto renderer = CRBMovementRecorder(movementRecorder);
 	renderer.RB_Render(viewParms);
+
+	if (movementRecorder.InEditor())
+		CPlaybackEditorRenderer(*movementRecorder.Editor).RB_Render(viewParms);
+
 #endif
 
 
