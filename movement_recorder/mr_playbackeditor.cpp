@@ -1,3 +1,5 @@
+#include "bg/bg_pmove_simulation.hpp"
+
 #include "cg/cg_local.hpp"
 #include "cg/cg_offsets.hpp"
 #include "cg/cg_client.hpp"
@@ -15,7 +17,7 @@
 #include <ranges>
 #include <cassert>
 
-CPlaybackEditor::CPlaybackEditor(const CPlayerStatePlayback& pb) 
+CPlaybackEditor::CPlaybackEditor(CPlayerStatePlayback& pb) 
 	: m_oRefPlayback(pb), m_uPlayerStateToCmdRatio(pb.m_objExtraHeader.m_uPlayerStateToCmdRatio){
 
 
@@ -25,8 +27,6 @@ CPlaybackEditor::~CPlaybackEditor() = default;
 
 void CPlaybackEditor::Advance(std::int32_t amount)
 {
-
-	
 
 	auto newOffset = int(m_iCurrentPlayerStateOffsetFromBeginning) + amount;
 	
@@ -44,6 +44,25 @@ size_t CPlaybackEditor::GetCurrentCmdOffset() const noexcept
 {
 	return m_iCurrentPlayerStateOffsetFromBeginning * m_uPlayerStateToCmdRatio;
 }
+size_t CPlaybackEditor::GetCurrentPlayerStateOffset() const noexcept
+{
+	return m_iCurrentPlayerStateOffsetFromBeginning;
+}
+void CPlaybackEditor::Merge(const CPlayerStatePlayback& playback)
+{
+
+	std::unique_lock<std::mutex> lock(mtx);
+
+	auto& ref = m_oRefPlayback;
+
+	ref.cmds.erase(ref.cmds.begin() + GetCurrentCmdOffset(), ref.cmds.end());
+	ref.playerStates.erase(ref.playerStates.begin() + GetCurrentPlayerStateOffset(), ref.playerStates.end());
+
+	ref.cmds.insert(ref.cmds.end(), playback.cmds.begin(), playback.cmds.end());
+	ref.playerStates.insert(ref.playerStates.end(), playback.playerStates.begin(), playback.playerStates.end());
+
+	Advance(0);
+}
 /***********************************************************************
  > 
 ***********************************************************************/
@@ -56,10 +75,34 @@ CPlaybackEditorRenderer::CPlaybackEditorRenderer(CPlaybackEditor& editor) : m_oR
 }
 CPlaybackEditorRenderer::~CPlaybackEditorRenderer() = default;
 
+std::vector<playerState_s> CPlaybackEditorRenderer::GetPlayerStates() const noexcept
+{
+
+	//only render a max of 100 lines to avoid crashing
+	const auto& playerStates = m_oRefPlaybackEditor.m_oRefPlayback.playerStates;
+	
+	if (playerStates.empty())
+		return{};
+
+
+
+	auto firstIndex = std::clamp(m_oRefPlaybackEditor.m_iCurrentPlayerStateOffsetFromBeginning - 100u, 0u, playerStates.size()-1u);
+
+	if ((int(m_oRefPlaybackEditor.m_iCurrentPlayerStateOffsetFromBeginning) - 100) < 0)
+		firstIndex = 0;
+
+	const auto lastIndex = std::clamp(m_oRefPlaybackEditor.m_iCurrentPlayerStateOffsetFromBeginning + 100u, 0u, playerStates.size()-1u);
+
+	return std::vector<playerState_s>(playerStates.begin() + firstIndex, playerStates.begin() + lastIndex);
+}
+
 void CPlaybackEditorRenderer::RB_Render([[maybe_unused]]GfxViewParms* vParms) const
 {
+	std::unique_lock<std::mutex> lock(m_oRefPlaybackEditor.mtx);
+
+
 	const auto currentState = m_oRefPlaybackEditor.GetCurrentState();
-	const auto& playerStates = m_oRefPlaybackEditor.m_oRefPlayback.playerStates;
+	const auto playerStates = GetPlayerStates();
 
 	assert(playerStates.size());
 

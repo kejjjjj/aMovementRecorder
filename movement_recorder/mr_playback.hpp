@@ -103,6 +103,11 @@ class CPlayerStatePlayback : public CPlayback
 	friend class CPlaybackEditor;
 	friend class CPlaybackEditorRenderer;
 
+	friend class CPlaybackSegmenter;
+
+	friend class CMovementRecorder;
+	friend class CStaticMovementRecorder;
+
 public:
 	CPlayerStatePlayback(std::vector<playback_cmd>&& data, std::vector<playerState_s>&& ps, const CPlaybackSettings& init);
 	explicit CPlayerStatePlayback(const std::vector<playback_cmd>& _data, const std::vector<playerState_s>& ps, const CPlaybackSettings& init);

@@ -43,6 +43,7 @@ void CMovementRecorderWindow::Render()
 
 		ImGui::Text("use mr_save <filename> to save a temporary recording");
 		ImGui::Text("use mr_teleportTo <filename> to teleport to the playback's origin");
+		ImGui::Text("use mr_advance <frame count> to change the starting position (while editing)");
 
 		ImGui::Separator();
 		ImGui::NewLine();

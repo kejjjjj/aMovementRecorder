@@ -75,7 +75,7 @@ public:
 #if(MOVEMENT_RECORDER)
 
 	// Recording control
-	void StartRecording(bool start_from_movement = false, bool includePlayerState = false);
+	void StartRecording(bool start_from_movement = false, bool includePlayerState = false, int divisibleBy = 0);
 	void StopRecording();
 	bool IsRecording() const noexcept;
 
@@ -87,6 +87,10 @@ public:
 	void OnPositionLoaded();
 	void SelectPlayback();
 	void OnDisconnect();
+
+	bool InEditor() const noexcept;
+	void CreateEditor(CPlayerStatePlayback& playback);
+	void DeleteEditor();
 
 	// Add playback to the queue or segmenter
 	void PushPlayback(CPlayback&& playback, is_segment_t segmenting_allowed = no_segmenting, is_lineup_t do_lineup = no_lineup);
@@ -100,9 +104,6 @@ public:
 	CDebugPlayback* GetDebugPlayback() const noexcept;
 	void ClearDebugPlayback();
 
-	bool InEditor() const noexcept;
-	void CreateEditor(const CPlayerStatePlayback& playback);
-	void DeleteEditor();
 
 	CPlayback* GetActivePlayback();
 	CPlayback* GetActivePlayback() const;
@@ -149,6 +150,7 @@ private:
 #if(MOVEMENT_RECORDER)
 	void UpdateLineup(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd);
 	void CreateTimedPlayback();
+
 #endif
 
 	void UpdatePlaybackQueue(usercmd_s* cmd, const usercmd_s* oldcmd);

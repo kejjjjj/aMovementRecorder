@@ -221,9 +221,10 @@ CPlayerStatePlayback::CPlayerStatePlayback(std::vector<playback_cmd>&& data, std
 	m_objExtraHeader.m_uNumCmds = cmds.size();
 	m_objExtraHeader.m_uNumPlayerStates = playerStates.size();
 
-	const auto ratio = static_cast<std::size_t>(cmds.size() / playerStates.size()) + 1u;
+	const auto ratio = static_cast<std::size_t>(cmds.size() / playerStates.size());
 
 	m_objExtraHeader.m_uPlayerStateToCmdRatio = ratio;
+
 
 };
 CPlayerStatePlayback::CPlayerStatePlayback(const std::vector<playback_cmd>& data, const std::vector<playerState_s>& ps, const CPlaybackSettings& init) 
@@ -232,7 +233,7 @@ CPlayerStatePlayback::CPlayerStatePlayback(const std::vector<playback_cmd>& data
 	m_objExtraHeader.m_uNumCmds = cmds.size();
 	m_objExtraHeader.m_uNumPlayerStates = playerStates.size();
 
-	const auto ratio = static_cast<std::size_t>(cmds.size() / playerStates.size()) + 1u;
+	const auto ratio = static_cast<std::size_t>(cmds.size() / playerStates.size());
 
 	m_objExtraHeader.m_uPlayerStateToCmdRatio = ratio;
 }

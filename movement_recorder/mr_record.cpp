@@ -54,7 +54,18 @@ void CRecorder::Record(const playerState_s* ps, usercmd_s* cmd, const usercmd_s*
 
 	data.emplace_back(StateToCmd(ps, cmd, oldcmd));
 }
-std::vector<playback_cmd>&& CRecorder::StopRecording() noexcept {
+bool CRecorder::WaitAndStopRecording() noexcept
+{
+	if (m_bWaitingToStopRecording) {
+
+		if (!m_iDivisibleBy || (data.size() % m_iDivisibleBy) == 0)
+			return true;
+
+	}
+
+	return false;
+}
+std::vector<playback_cmd>&& CRecorder::GiveResult() noexcept {
 	return std::move(data);
 }
 playback_cmd* CRecorder::GetCurrentCmd()
@@ -77,15 +88,17 @@ void CPlayerStateRecorder::Record(const playerState_s* ps, usercmd_s* cmd, const
 		return;
 	}
 
-	//const bool hasVelocity = fvec3(ps->velocity).mag_sq() != 0.000000f;
-	//if ((hasVelocity || cmd->forwardmove == 0 && cmd->rightmove == 0) && m_bStartFromMove && data.empty()) {
-	//	return;
-	//}
+	const bool hasVelocity = fvec3(ps->velocity).mag_sq() != 0.000000f;
+	if ((hasVelocity || cmd->forwardmove == 0 && cmd->rightmove == 0) && m_bStartFromMove && data.empty()) {
+		return;
+	}
 
+	
 	const auto addPlayerstate = (data.size() % PLAYERSTATE_TO_CMD_RATIO) == 0;
 
 	data.emplace_back(StateToCmd(ps, cmd, oldcmd));
 	
-	if (addPlayerstate)
+	if (data.size() == m_uStartIndex || addPlayerstate)
 		playerState.emplace_back(*ps);
+
 }

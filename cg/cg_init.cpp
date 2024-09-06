@@ -31,6 +31,19 @@ return 0;
 
 static void NVar_Setup(NVarTable* table)
 {
+    Cmd_AddCommand("mr_record", CStaticMovementRecorder::ToggleRecording);
+    Cmd_AddCommand("mr_recordPlayerstate", CStaticMovementRecorder::ToggleRecordingWithPlayerState);
+
+    Cmd_AddCommand("mr_playback", CStaticMovementRecorder::SelectPlayback);
+    Cmd_AddCommand("mr_save", CStaticMovementRecorder::Save);
+    Cmd_AddCommand("mr_teleportTo", CStaticMovementRecorder::TeleportTo);
+    Cmd_AddCommand("mr_clear", CStaticMovementRecorder::Clear);
+    Cmd_AddCommand("mr_advance", CStaticMovementRecorder::AdvanceEditor);
+
+#if(DEBUG_SUPPORT)
+    Cmd_AddCommand("mr_simulation", CStaticMovementRecorder::Simulation);
+#endif
+
     table->AddImNvar<bool, ImCheckbox>("Show Origins", true, NVar_ArithmeticToString<bool>)
         ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, 
             "show where saved playbacks start from\n"
@@ -76,16 +89,6 @@ void CG_Init()
     }
 
     Cmd_AddCommand("gui", CStaticMainGui::Toggle);
-
-    Cmd_AddCommand("mr_record", CStaticMovementRecorder::ToggleRecording);
-    Cmd_AddCommand("mr_recordPlayerstate", CStaticMovementRecorder::ToggleRecordingWithPlayerState);
-
-    Cmd_AddCommand("mr_playback", CStaticMovementRecorder::SelectPlayback);
-    Cmd_AddCommand("mr_save", CStaticMovementRecorder::Save);
-    Cmd_AddCommand("mr_teleportTo", CStaticMovementRecorder::TeleportTo);
-    Cmd_AddCommand("mr_clear", CStaticMovementRecorder::Clear);
-    Cmd_AddCommand("mr_simulation", CStaticMovementRecorder::Simulation);
-    Cmd_AddCommand("mr_advance", CStaticMovementRecorder::AdvanceEditor);
 
     CStaticMainGui::AddItem(std::make_unique<CMovementRecorderWindow>(NVAR_TABLE_NAME));
 
@@ -147,12 +150,6 @@ void CG_Init()
     CMain::Shared::GetFunctionOrExit("Queue_CL_CreateNewCommands")->As<void, createnewcommands_t>()->Call(CL_CreateNewCommands);
     CMain::Shared::GetFunctionOrExit("Queue_RB_EndScene")->As<void, rb_endscene_t>()->Call(RB_DrawDebug);
     CMain::Shared::GetFunctionOrExit("Queue_CG_Cleanup")->As<void, cg_cleanup_t>()->Call(CG_Cleanup);
-
-    Cmd_AddCommand("mr_record", CStaticMovementRecorder::ToggleRecording);
-    Cmd_AddCommand("mr_playback", CStaticMovementRecorder::SelectPlayback);
-    Cmd_AddCommand("mr_save", CStaticMovementRecorder::Save);
-    Cmd_AddCommand("mr_teleportTo", CStaticMovementRecorder::TeleportTo);
-    Cmd_AddCommand("mr_clear", CStaticMovementRecorder::Clear);
 
 #pragma warning(suppress : 6011) //false positive
 

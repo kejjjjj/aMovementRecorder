@@ -56,12 +56,22 @@ void CMovementRecorder::Update([[maybe_unused]]const playerState_s* ps, usercmd_
 
 	//Moved these below so that the recorder&segmenter gets the newest cmds
 	if (Recorder) {
-		Recorder->Record(ps, cmd, oldcmd);
+
+		if (Recorder->WaitAndStopRecording()) {
+			StopRecording();
+		}else
+			Recorder->Record(ps, cmd, oldcmd);
 	}
 
 	if (Segmenter && !Segmenter->Update(ps, cmd, oldcmd)) {
+
+
 		//this means that the playback ended without any user inputs
-		Segmenter.reset();
+		if(!Segmenter->ResultExists())
+			Segmenter.reset();
+		else {
+			StopSegmenting();
+		}
 
 	}
 #else
@@ -100,21 +110,35 @@ void CMovementRecorder::UpdatePlaybackQueue(usercmd_s* cmd, const usercmd_s* old
 
 }
 #if(MOVEMENT_RECORDER)
-void CMovementRecorder::StartRecording(bool start_from_movement, bool includePlayerState) {
+bool CMovementRecorder::InEditor() const noexcept
+{
+	return Editor != nullptr;
+}
+void CMovementRecorder::CreateEditor(CPlayerStatePlayback& playback)
+{
+	DeleteEditor();
+	Editor = std::make_unique<CPlaybackEditor>(playback);
+}
+void CMovementRecorder::DeleteEditor()
+{
+	Editor.reset();
+	Editor = 0;
+}
+void CMovementRecorder::StartRecording(bool start_from_movement, bool includePlayerState, int divisibleBy) {
 	PendingRecording.reset();
 
 	//wait 300 server frames before starting the recoding so that SetOrigin() has enough time to set the position 
 	if(!includePlayerState)
-		Recorder = std::make_unique<CRecorder>(start_from_movement, 300);
+		Recorder = std::make_unique<CRecorder>(start_from_movement, 300, divisibleBy);
 	else
-		Recorder = std::make_unique<CPlayerStateRecorder>(start_from_movement, 300);
+		Recorder = std::make_unique<CPlayerStateRecorder>(start_from_movement, 300, 0u, divisibleBy);
 
 }
 void CMovementRecorder::StopRecording() {
 	if (!Recorder)
 		return;
 
-	PendingRecording = std::make_unique<std::vector<playback_cmd>>(Recorder->StopRecording());
+	PendingRecording = std::make_unique<std::vector<playback_cmd>>(Recorder->GiveResult());
 
 	//kind of a silly hardcoded thing, but I doubt the recorder will extend functionality after this :clueless:
 	if (Recorder->AmIDerived()) {
@@ -131,8 +155,15 @@ void CMovementRecorder::StopSegmenting() {
 
 	if (Segmenter->ResultExists()) {
 
-		if (auto result = Segmenter->GetResult()) {
-			PendingRecording = std::make_unique<std::vector<playback_cmd>>(result->cmds);
+		if (const auto result = Segmenter->GetResult()) {
+
+			if (result->AmIDerived()) {
+				assert(InEditor());
+				Editor->Merge(dynamic_cast<const CPlayerStatePlayback&>(*result));
+			}
+			else {
+				PendingRecording = std::make_unique<std::vector<playback_cmd>>(result->cmds);
+			}
 		}
 		else {
 			Com_Printf("the recording failed\n");
@@ -140,6 +171,10 @@ void CMovementRecorder::StopSegmenting() {
 	}
 
 	Segmenter.reset();
+	
+	if (InEditor() && Editor->m_oSegmentedPlayback)
+		Editor->m_oSegmentedPlayback.reset();
+
 }
 bool CMovementRecorder::IsSegmenting() const noexcept { return Segmenter != nullptr; }
 void CMovementRecorder::OnPositionLoaded()
@@ -151,7 +186,7 @@ void CMovementRecorder::OnPositionLoaded()
 	}
 
 	//loading position resets the segmenter
-	if (Segmenter) {
+	if (IsSegmenting()){
 		Segmenter.reset();
 	}
 
@@ -164,7 +199,7 @@ void CMovementRecorder::SelectPlayback()
 	if (InEditor()) {
 		TimedPlayback = Editor->GetCurrentState();
 
-		if (CG_IsOnGround(TimedPlayback)) {
+		if (CG_IsOnGround(TimedPlayback) && Editor->GetCurrentCmdOffset() != 0) {
 			TimedPlayback = 0;
 			Com_Printf("^1you can only continue from a point where the player is in the air\n");
 		}
@@ -291,22 +326,27 @@ void CMovementRecorder::UpdateLineup(const playerState_s* ps, usercmd_s* cmd, co
 
 void CMovementRecorder::CreateTimedPlayback()
 {
-	std::vector<playback_cmd> copy;
-	auto& cmds = Editor->m_oRefPlayback.cmds;
+	auto& pb = Editor->m_oRefPlayback;
+	auto& cmds = pb.cmds;
 
-	copy.resize(cmds.size() - Editor->GetCurrentCmdOffset());
+	std::vector<playback_cmd> copy(cmds.begin() + Editor->GetCurrentCmdOffset(), cmds.end());
+	std::vector<playerState_s> playerStates(pb.playerStates.begin() + Editor->GetCurrentPlayerStateOffset(), pb.playerStates.end());
 
-	std::copy(cmds.begin() + Editor->GetCurrentCmdOffset(), cmds.end(), copy.begin());
+	const is_segment_t segmenting = static_cast<is_segment_t>(NVar_FindMalleableVar<bool>("Segmenting")->Get());
 
-	PlaybackQueue.emplace(
-		std::make_unique<CPlayback>(copy,
+	Editor->m_oSegmentedPlayback = std::make_unique<CPlayerStatePlayback>(copy, playerStates,
 			CPlaybackSettings{
 				.m_iGSpeed = CG_GetSpeed(&cgs->predictedPlayerState),
 				.m_eJumpSlowdownEnable = (slowdown_t)Dvar_FindMalleableVar("jump_slowdownEnable")->current.enabled,
 				.m_bIgnorePitch = NVar_FindMalleableVar<bool>("Ignore Pitch")->Get(),
 				.m_bIgnoreWeapon = NVar_FindMalleableVar<bool>("Ignore Weapon")->Get(),
-			}, false));
+			});
 
+
+	if (segmenting)
+		Segmenter = std::make_unique<CPlaybackSegmenter>(*Editor->m_oSegmentedPlayback);
+	else
+		PlaybackQueue.emplace(std::move(Editor->m_oSegmentedPlayback));
 
 	const auto oldTime = ps_loc->commandTime;
 	auto oldSprint = ps_loc->sprintState;
@@ -321,11 +361,10 @@ void CMovementRecorder::CreateTimedPlayback()
 	ps_loc->sprintState = oldSprint;
 	ps_loc->jumpTime = oldJumpTime;
 
-	const auto& f = PlaybackQueue.front()->cmds.front();
+	const auto& f = segmenting ? Segmenter->GetPlayback()->cmds.front() : PlaybackQueue.front()->cmds.front();
 
 	level->time = level->previousTime + (f.serverTime - f.oldTime);
 	TimedPlaybackTiming = level->time;
-
 
 }
 void CStaticMovementRecorder::SelectPlayback()
@@ -351,8 +390,9 @@ void CStaticMovementRecorder::ToggleRecording()
 	if (CL_ConnectionState() != CA_ACTIVE || cgs->predictedPlayerState.pm_type != PM_NORMAL)
 		return;
 
-	if (Instance->InEditor())
-		return Com_Printf("not allowed when editing a playback\n");
+	if (Instance->InEditor()) {
+		return Com_Printf("not allowed when editing a playback.. did you mean to use mr_recordPlayerstate?\n");
+	}
 
 	if (Instance->GetActivePlayback()) {
 		if (Instance->Segmenter)
@@ -361,11 +401,11 @@ void CStaticMovementRecorder::ToggleRecording()
 		return;
 	}
 
-	if (Instance->IsRecording())
-		return Instance->StopRecording();
-
+	if (Instance->IsRecording()) {
+		return Instance->Recorder->StopRecording();
+	}
 	if (Instance->IsSegmenting())
-		return Instance->StopSegmenting();
+		return Instance->Segmenter->StopSegmenting();
 
 
 	Instance->StartRecording();
@@ -378,8 +418,8 @@ void CStaticMovementRecorder::ToggleRecordingWithPlayerState()
 	if (!Dvar_FindMalleableVar("sv_running")->current.enabled)
 		return Com_Printf("^1this command is only available when sv_running is 1");
 
-	if (Instance->InEditor())
-		return Com_Printf("not allowed when editing a playback\n");
+	if (Instance->InEditor() && !Instance->Editor->m_oSegmentedPlayback)
+		return Com_Printf("not allowed when editing a playback (only during segmenting)\n");
 
 
 	if (Instance->GetActivePlayback()) {
@@ -388,14 +428,13 @@ void CStaticMovementRecorder::ToggleRecordingWithPlayerState()
 		return;
 	}
 
-	if (Instance->IsRecording())
-		return Instance->StopRecording();
-
+	if (Instance->IsRecording()) {
+		return Instance->Recorder->StopRecording();
+	}
 	if (Instance->IsSegmenting())
-		return Instance->StopSegmenting();
+		return Instance->Segmenter->StopSegmenting();
 
-
-	Instance->StartRecording(false, true);
+	Instance->StartRecording(true, true, PLAYERSTATE_TO_CMD_RATIO);
 }
 void CStaticMovementRecorder::OnDisconnect() {
 	m_bPlaybacksLoaded = false;
@@ -413,14 +452,23 @@ void CStaticMovementRecorder::Save() {
 		return Com_Printf("usage: mr_save <filename>\n");
 	}
 
-	if (!Instance->PendingRecording)
-		return Com_Printf("^1there is nothing to save\n");
 
 	const char* filename = *(cmd_args->argv[cmd_args->nesting] + 1);
 
 	CMovementRecorderIO io(*Instance);
 
-	
+	if (Instance->InEditor()) {
+		if (io.SavePlayerStatePlaybackToDisk(filename, Instance->Editor->m_oRefPlayback.cmds, Instance->Editor->m_oRefPlayback.playerStates)) {
+			return;
+		}
+
+		return;
+	}
+
+	if (!Instance->PendingRecording)
+		return Com_Printf("^1there is nothing to save\n");
+
+
 	if(!Instance->PendingRecordingPlayerStates.empty())
 		if (io.SavePlayerStatePlaybackToDisk(filename, *Instance->PendingRecording, Instance->PendingRecordingPlayerStates))
 			Instance->PendingRecording.reset();
@@ -569,20 +617,6 @@ CDebugPlayback* CMovementRecorder::GetDebugPlayback() const noexcept
 void CMovementRecorder::ClearDebugPlayback()
 {
 	m_pDebugPlayback = 0;
-}
-bool CMovementRecorder::InEditor() const noexcept
-{
-	return Editor != nullptr;
-}
-void CMovementRecorder::CreateEditor(const CPlayerStatePlayback& playback)
-{
-	DeleteEditor();
-	Editor = std::make_unique<CPlaybackEditor>(playback);
-}
-void CMovementRecorder::DeleteEditor()
-{
-	Editor.reset();
-	Editor = 0;
 }
 CPlayback* CMovementRecorder::GetActivePlayback() {
 
