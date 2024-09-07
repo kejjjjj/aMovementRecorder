@@ -200,6 +200,7 @@ fvec3 CPlayback::GetAngles() const noexcept { return cmds.front().viewangles; }
 
 void CPlayback::EraseDeadFrames()
 {
+
 	const auto it = std::find_if(cmds.begin(), cmds.end(), [](const playback_cmd& cmd){
 		return fvec3(cmd.velocity) != 0.f || cmd.forwardmove != 0 || cmd.rightmove != 0;
 	});
@@ -221,9 +222,10 @@ CPlayerStatePlayback::CPlayerStatePlayback(std::vector<playback_cmd>&& data, std
 	m_objExtraHeader.m_uNumCmds = cmds.size();
 	m_objExtraHeader.m_uNumPlayerStates = playerStates.size();
 
-	const auto ratio = static_cast<std::size_t>(cmds.size() / playerStates.size());
+	auto ratio = static_cast<float>(cmds.size()) / static_cast<float>(playerStates.size());
+	ratio = std::ceil(ratio);
 
-	m_objExtraHeader.m_uPlayerStateToCmdRatio = ratio;
+	m_objExtraHeader.m_uPlayerStateToCmdRatio = static_cast<std::size_t>(ratio);
 
 
 };
@@ -233,9 +235,10 @@ CPlayerStatePlayback::CPlayerStatePlayback(const std::vector<playback_cmd>& data
 	m_objExtraHeader.m_uNumCmds = cmds.size();
 	m_objExtraHeader.m_uNumPlayerStates = playerStates.size();
 
-	const auto ratio = static_cast<std::size_t>(cmds.size() / playerStates.size());
+	auto ratio = static_cast<float>(cmds.size()) / static_cast<float>(playerStates.size());
+	ratio = std::ceil(ratio);
 
-	m_objExtraHeader.m_uPlayerStateToCmdRatio = ratio;
+	m_objExtraHeader.m_uPlayerStateToCmdRatio = static_cast<std::size_t>(ratio);
 }
 
 CPlayerStatePlayback::~CPlayerStatePlayback() = default;

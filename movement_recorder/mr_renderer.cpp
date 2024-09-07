@@ -75,6 +75,9 @@ void CRMovementRecorder::CG_Render() const
 	//this is useful to have
 	CG_RenderStatus();
 
+	if (CStaticMovementRecorder::Instance->InEditor())
+		CPlaybackEditorRenderer(*CStaticMovementRecorder::Instance->Editor).CG_Render();
+
 }
 
 void CRMovementRecorder::CG_RenderOrigins() const
@@ -189,7 +192,7 @@ void CRBMovementRecorder::RB_Render(GfxViewParms* viewParms) const
 	if (NVar_FindMalleableVar<bool>("Show Origins")->Get())
 		RB_RenderOrigins();
 
-	if (m_oRefMovementRecorder.m_pDebugPlayback)
+	if (!m_oRefMovementRecorder.GetActivePlayback() && m_oRefMovementRecorder.m_pDebugPlayback)
 		m_oRefMovementRecorder.m_pDebugPlayback->RB_Render(viewParms);
 
 }

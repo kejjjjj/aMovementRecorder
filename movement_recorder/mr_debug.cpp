@@ -16,7 +16,7 @@ void CDebugPlayback::RB_Render([[maybe_unused]] GfxViewParms* viewParms) const
 {
 
 	//expectation
-	const auto numOriginalPoints = m_oExpectedPlayback.size();
+	const auto numOriginalPoints = std::min(300u, m_oExpectedPlayback.size());
 	auto vert_count = 0;
 
 	for (const auto i : std::views::iota(0u, numOriginalPoints -1u)) {
@@ -25,7 +25,7 @@ void CDebugPlayback::RB_Render([[maybe_unused]] GfxViewParms* viewParms) const
 
 	}
 
-	const auto numRealityPoints = m_oRealityPlayback.size();
+	const auto numRealityPoints = std::min(300u, m_oRealityPlayback.size());
 
 	if (numRealityPoints > 0) {
 		for (const auto i : std::views::iota(0u, numRealityPoints - 1u)) {

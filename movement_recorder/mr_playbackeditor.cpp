@@ -8,6 +8,7 @@
 #include "mr_playback.hpp"
 
 #include "r/backend/rb_endscene.hpp"
+#include "r/r_drawtools.hpp"
 
 #include "shared/sv_shared.hpp"
 
@@ -16,6 +17,7 @@
 #include <algorithm>
 #include <ranges>
 #include <cassert>
+#include <com/com_channel.hpp>
 
 CPlaybackEditor::CPlaybackEditor(CPlayerStatePlayback& pb) 
 	: m_oRefPlayback(pb), m_uPlayerStateToCmdRatio(pb.m_objExtraHeader.m_uPlayerStateToCmdRatio){
@@ -128,6 +130,19 @@ void CPlaybackEditorRenderer::RB_Render([[maybe_unused]]GfxViewParms* vParms) co
 		RB_DrawBoxEdges(mins, maxs, true, vec4_t{ 1,0,0,0.7f });
 
 #endif
+}
+
+void CPlaybackEditorRenderer::CG_Render() const
+{
+
+	const auto icmd = m_oRefPlaybackEditor.GetCurrentCmdOffset();
+	const auto& cmd = m_oRefPlaybackEditor.m_oRefPlayback.cmds[icmd];
+
+	if (const auto o = WorldToScreen(cmd.origin)) {
+		R_AddCmdDrawTextWithEffects("here!", "fonts/normalFonts", *o, 0.5f, 0.f, 5, vec4_t{ 1,1,1,1 }, vec4_t{ 1,0,0,1 });
+
+	}
+
 }
 
 void CPlaybackEditorRenderer::UpdateVertices()

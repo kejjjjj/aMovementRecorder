@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <ranges>
+#include <cassert>
 
 CRecorder::~CRecorder() = default;
 
@@ -56,6 +57,8 @@ void CRecorder::Record(const playerState_s* ps, usercmd_s* cmd, const usercmd_s*
 }
 bool CRecorder::WaitAndStopRecording() noexcept
 {
+
+
 	if (m_bWaitingToStopRecording) {
 
 		if (!m_iDivisibleBy || (data.size() % m_iDivisibleBy) == 0)
@@ -93,12 +96,28 @@ void CPlayerStateRecorder::Record(const playerState_s* ps, usercmd_s* cmd, const
 		return;
 	}
 
-	
 	const auto addPlayerstate = (data.size() % PLAYERSTATE_TO_CMD_RATIO) == 0;
 
 	data.emplace_back(StateToCmd(ps, cmd, oldcmd));
-	
-	if (data.size() == m_uStartIndex || addPlayerstate)
-		playerState.emplace_back(*ps);
 
+	if (addPlayerstate) {
+		playerStates.emplace_back(*ps);
+		//assert((data.size() / playerStates.size() == PLAYERSTATE_TO_CMD_RATIO));
+
+	}
+
+
+}
+bool CPlayerStateRecorder::WaitAndStopRecording() noexcept
+{
+
+
+	if (m_bWaitingToStopRecording) {
+
+		if (!m_iDivisibleBy || (data.size() / playerStates.size()) == size_t(m_iDivisibleBy))
+			return true;
+
+	}
+
+	return false;
 }

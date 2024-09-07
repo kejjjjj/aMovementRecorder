@@ -128,7 +128,14 @@ void CGuiMovementRecorder::RenderLevelRecordings()
 
 			if (ImGui::Button("Yes", ImVec2(120, 0))) {
 
-				if (io.DeleteFileFromDisk(name))
+				auto& pb = movementRecorder->LevelPlaybacks[name];
+				
+				if (pb->AmIDerived()) {
+					if (io.DeletePlayerStatePlaybackFileFromDisk(name))
+						Com_Printf("%s has been deleted from disk\n", name.c_str());
+
+				}
+				else if (io.DeleteFileFromDisk(name))
 					Com_Printf("%s has been deleted from disk\n", name.c_str());
 
 				if (movementRecorder->InEditor())

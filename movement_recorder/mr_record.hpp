@@ -18,7 +18,7 @@ public:
 
 	[[nodiscard]] inline bool IsWaiting() const noexcept { return m_iStartTimer > 0; }
 	
-	[[nodiscard]] bool WaitAndStopRecording() noexcept;
+	[[nodiscard]] virtual bool WaitAndStopRecording() noexcept;
 	inline void StopRecording() noexcept { m_bWaitingToStopRecording = true; };
 
 	[[nodiscard]] std::vector<playback_cmd>&& GiveResult() noexcept;
@@ -42,19 +42,18 @@ protected:
 class CPlayerStateRecorder : public CRecorder
 {
 public:
-	CPlayerStateRecorder(size_t startIndex=0u) : CRecorder(), m_uStartIndex(startIndex) {};
-	explicit CPlayerStateRecorder(bool start_from_movement, int start_timer = 0, size_t startIndex = 0u, int divisibleBy=0) 
-		: CRecorder(start_from_movement, start_timer, divisibleBy), m_uStartIndex(startIndex) {}
+	CPlayerStateRecorder() : CRecorder() {};
+	explicit CPlayerStateRecorder(bool start_from_movement, int start_timer = 0, int divisibleBy=0) 
+		: CRecorder(start_from_movement, start_timer, divisibleBy) {}
 	~CPlayerStateRecorder();
 
 	void Record(const playerState_s* ps, usercmd_s* cmd, const usercmd_s* oldcmd) noexcept override;
+	[[nodiscard]] bool WaitAndStopRecording() noexcept override;
+
 	[[nodiscard]] constexpr bool AmIDerived() const noexcept override { return true; }
 
-	std::vector<playerState_s> playerState;
+	std::vector<playerState_s> playerStates;
 
 private:
-
-	//start recording playerstate after this many iterations have passed
-	size_t m_uStartIndex = 0u;
 
 };

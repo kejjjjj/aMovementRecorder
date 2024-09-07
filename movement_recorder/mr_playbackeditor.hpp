@@ -46,7 +46,7 @@ public:
 	~CPlaybackEditorRenderer();
 
 	void RB_Render(GfxViewParms* vParms) const;
-
+	void CG_Render() const;
 private:
 
 	void UpdateVertices();

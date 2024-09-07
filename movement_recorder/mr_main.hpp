@@ -229,6 +229,7 @@ public:
 	[[maybe_unused]] bool LoadPlayerStatePlaybackFromDisk(const std::string& name);
 
 	[[maybe_unused]] bool DeleteFileFromDisk(const std::string& name);
+	[[maybe_unused]] bool DeletePlayerStatePlaybackFileFromDisk(const std::string& name);
 
 
 	[[maybe_unused]] bool RefreshAllLevelPlaybacks();

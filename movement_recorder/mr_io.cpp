@@ -6,6 +6,7 @@
 #include "fs/fs_globals.hpp"
 #include "mr_main.hpp"
 #include "mr_playback.hpp"
+#include <cassert>
 
 bool CMovementRecorderIO::SaveToDisk(const std::string& name, const std::vector<playback_cmd>& cmds)
 {
@@ -38,6 +39,8 @@ bool CMovementRecorderIO::SavePlayerStatePlaybackToDisk(const std::string& name,
 		Com_Printf("^1invalid name\n");
 		return false;
 	}
+
+	assert((cmds.size() / ps.size() == PLAYERSTATE_TO_CMD_RATIO));
 
 	const CPlayerStatePlayback pb(cmds, ps, {});
 	const std::string mapname = Dvar_FindMalleableVar("mapname")->current.string;
@@ -97,6 +100,18 @@ bool CMovementRecorderIO::DeleteFileFromDisk(const std::string& name)
 {
 	const std::string mapname = Dvar_FindMalleableVar("mapname")->current.string;
 	const auto file = (AGENT_DIRECTORY() + "\\Playbacks\\" + mapname + "\\" + name);
+
+	if (!fs::file_exists(file)) {
+		Com_Printf("^1the file doesn't exist");
+		return false;
+	}
+
+	return std::filesystem::remove(file);
+}
+bool CMovementRecorderIO::DeletePlayerStatePlaybackFileFromDisk(const std::string& name)
+{
+	const std::string mapname = Dvar_FindMalleableVar("mapname")->current.string;
+	const auto file = (AGENT_DIRECTORY() + "\\Playbacks\\" + mapname + "\\Long\\" + name);
 
 	if (!fs::file_exists(file)) {
 		Com_Printf("^1the file doesn't exist");

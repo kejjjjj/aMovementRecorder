@@ -131,19 +131,20 @@ void CMovementRecorder::StartRecording(bool start_from_movement, bool includePla
 	if(!includePlayerState)
 		Recorder = std::make_unique<CRecorder>(start_from_movement, 300, divisibleBy);
 	else
-		Recorder = std::make_unique<CPlayerStateRecorder>(start_from_movement, 300, 0u, divisibleBy);
+		Recorder = std::make_unique<CPlayerStateRecorder>(start_from_movement, 300, divisibleBy);
 
 }
 void CMovementRecorder::StopRecording() {
 	if (!Recorder)
 		return;
 
+	PendingRecordingPlayerStates.clear();
 	PendingRecording = std::make_unique<std::vector<playback_cmd>>(Recorder->GiveResult());
 
 	//kind of a silly hardcoded thing, but I doubt the recorder will extend functionality after this :clueless:
 	if (Recorder->AmIDerived()) {
 		const auto r = dynamic_cast<CPlayerStateRecorder*>(Recorder.get());
-		PendingRecordingPlayerStates = r->playerState;
+		PendingRecordingPlayerStates = r->playerStates;
 	}
 	Recorder.reset();
 
@@ -179,6 +180,11 @@ void CMovementRecorder::StopSegmenting() {
 bool CMovementRecorder::IsSegmenting() const noexcept { return Segmenter != nullptr; }
 void CMovementRecorder::OnPositionLoaded()
 {
+	if (PlaybackActive) {
+		PlaybackActive = {};
+		PlaybackQueue.pop();
+	}
+
 	if (Recorder) {
 		const bool wasDerived = Recorder->AmIDerived();
 		StopRecording();
@@ -469,10 +475,10 @@ void CStaticMovementRecorder::Save() {
 		return Com_Printf("^1there is nothing to save\n");
 
 
-	if(!Instance->PendingRecordingPlayerStates.empty())
+	if (!Instance->PendingRecordingPlayerStates.empty()) {
 		if (io.SavePlayerStatePlaybackToDisk(filename, *Instance->PendingRecording, Instance->PendingRecordingPlayerStates))
 			Instance->PendingRecording.reset();
-
+	}
 	else if (io.SaveToDisk(filename, *Instance->PendingRecording))
 		Instance->PendingRecording.reset();
 

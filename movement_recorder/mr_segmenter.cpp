@@ -41,7 +41,7 @@ success_t CPlaybackSegmenter::Update(const playerState_s* ps, usercmd_s* cmd, co
 
 		if (m_pOriginal->AmIDerived()) {
 			const auto& psPlayback = dynamic_cast<const CPlayerStatePlayback&>(*m_pOriginal);
-			m_oRecorder = std::make_unique<CPlayerStateRecorder>(false, 0, 0, psPlayback.m_objExtraHeader.m_uPlayerStateToCmdRatio);
+			m_oRecorder = std::make_unique<CPlayerStateRecorder>(false, 0, psPlayback.m_objExtraHeader.m_uPlayerStateToCmdRatio);
 		}
 		else {
 			m_oRecorder = std::make_unique<CRecorder>();
@@ -117,7 +117,7 @@ std::unique_ptr<CPlayback> CPlaybackSegmenter::GetResult() const
 		const auto& psPlayback = dynamic_cast<const CPlayerStatePlayback&>(*m_pOriginal);
 		const auto& psRecorder = dynamic_cast<const CPlayerStateRecorder&>(*m_oRecorder);
 
-		const auto ratio = static_cast<std::size_t>(result.size() / psRecorder.playerState.size());
+		const auto ratio = static_cast<std::size_t>(result.size() / psRecorder.playerStates.size());
 		assert(ratio == psPlayback.m_objExtraHeader.m_uPlayerStateToCmdRatio);
 		assert(m_iNewSegment % ratio == 0);
 
@@ -126,7 +126,7 @@ std::unique_ptr<CPlayback> CPlaybackSegmenter::GetResult() const
 		std::vector<playerState_s> playerStates(psPlayback.playerStates.begin(), psPlayback.playerStates.begin() + m_iNewSegment / ratio);
 
 		//add the new playerstates
-		playerStates.insert(playerStates.end(), psRecorder.playerState.begin(), psRecorder.playerState.end());
+		playerStates.insert(playerStates.end(), psRecorder.playerStates.begin(), psRecorder.playerStates.end());
 		return std::make_unique<CPlayerStatePlayback>(newdata, playerStates, settings);
 	}
 
