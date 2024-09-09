@@ -126,6 +126,7 @@ void CMovementRecorder::DeleteEditor()
 }
 void CMovementRecorder::StartRecording(bool start_from_movement, bool includePlayerState, int divisibleBy) {
 	PendingRecording.reset();
+	PendingRecordingPlayerStates.clear();
 
 	//wait 300 server frames before starting the recoding so that SetOrigin() has enough time to set the position 
 	if(!includePlayerState)
@@ -264,6 +265,7 @@ void CMovementRecorder::SelectPlayback()
 void CMovementRecorder::OnDisconnect()
 {
 	PendingRecording.reset();
+	PendingRecordingPlayerStates.clear();
 	Recorder.reset();
 	PlaybackActive = {};
 	LevelPlaybacks.clear();
